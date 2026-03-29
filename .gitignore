@@ -211,3 +211,6 @@ notebook/
 
 # Data
 data/
+
+# Codex
+.codex

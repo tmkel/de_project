@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: uk_carbon_postgres
+    environment:
+      POSTGRES_DB: uk_carbon
+      POSTGRES_USER: uk_carbon_user
+      POSTGRES_PASSWORD: uk_carbon_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/storage/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+
+volumes:
+  postgres_data:
+    
