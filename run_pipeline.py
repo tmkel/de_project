@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import subprocess
 import argparse
 import json
 from pathlib import Path
@@ -14,7 +15,7 @@ from src.models.schemas import (
     validate_intensity_response,
     validate_regional_response,
 )
-from src.storage import loader, staging
+from src.storage import raw_loader, staging
 
 RAW_DATASET_CONFIG = {
     "national_intensity": {
@@ -72,6 +73,7 @@ def run_pipeline(
     *,
     skip_ingest: bool = False,
     skip_load: bool = False,
+    skip_transform: bool = False,
 ) -> None:
     """Run the pipeline steps in order, with optional ingest/load skips."""
     if not skip_ingest:
@@ -88,9 +90,26 @@ def run_pipeline(
 
     if not skip_load:
         print("Starting load...")
-        loader.main(from_date, to_date)
+        raw_loader.main(from_date, to_date)
     else:
         print("Skipping load.")
+
+    if not skip_load and not skip_transform:
+        print("Starting dbt transform...")
+        dbt_dir = Path(__file__).parent / "uk_carbon"
+
+        result = subprocess.run(
+            ["dbt", "build"],
+            cwd=dbt_dir,
+            capture_output=True,
+            text=True,
+        )
+        print(result.stdout)
+        if result.returncode != 0:
+            print(f"dbt build failed:\n{result.stderr}")
+            raise SystemExit(1)
+    else:
+        print("Skipping dbt transform.")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -110,6 +129,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Stop after staging without loading into the database.",
     )
+    parser.add_argument(
+        "--skip-transform",
+        action="store_true",
+        help="Skip dbt transformation step.",
+    )
     return parser
 
 
@@ -121,6 +145,7 @@ def main() -> None:
         args.to_date,
         skip_ingest=args.skip_ingest,
         skip_load=args.skip_load,
+        skip_transform=args.skip_transform,
     )
 
 

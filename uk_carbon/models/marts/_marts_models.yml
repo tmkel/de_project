@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: dim_region
+    description: "UK grid regions from the Carbon Intensity API"
+    columns:
+      - name: region_id
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_fuel
+    description: "Fuel types with renewable/fossil/other categorization"
+    columns:
+      - name: fuel_type
+        tests:
+          - unique
+          - not_null
+      - name: fuel_category
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['renewable', 'fossil', 'other']
+
+  - name: fct_daily_intensity
+    description: "Daily national carbon intensity aggregated from half-hourly data"
+    columns:
+      - name: period_date
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_generation_mix
+    description: "Daily generation mix by fuel type"
+    columns:
+      - name: period_date
+        tests:
+          - not_null
+      - name: fuel_type
+        tests:
+          - not_null
+
+  - name: fct_forecast_accuracy
+    description: "Daily forecast accuracy metrics"
+    columns:
+      - name: period_date
+        tests:
+          - unique
+          - not_null

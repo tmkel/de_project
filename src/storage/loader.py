@@ -5,6 +5,10 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 
+def staged_file_exists(dataset: str, date: str) -> bool:
+    return os.path.exists(f"./data/staging/{dataset}/{date}.parquet")
+
+
 def get_connection() -> psycopg2.extensions.connection | None:
     load_dotenv()  # Load environment variables from .env file
     db_url = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
@@ -83,7 +87,7 @@ def ensure_region(
 
 
 def load_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -> None:
-    if not os.path.exists(f"./data/staging/national_intensity/{date}.parquet"):
+    if not staged_file_exists("national_intensity", date):
         print(f"WARNING: No staged national intensity data for {date}, skipping")
         return None
     national_intensity_df = pd.read_parquet(f"./data/staging/national_intensity/{date}.parquet")
@@ -112,7 +116,7 @@ def load_generation(
     fuel_lookup: dict[str, int],
     date: str,
 ) -> None:
-    if not os.path.exists(f"./data/staging/generation/{date}.parquet"):
+    if not staged_file_exists("generation", date):
         print(f"WARNING: No staged generation data for {date}, skipping")
         return None
     generation_df = pd.read_parquet(f"./data/staging/generation/{date}.parquet")
@@ -140,7 +144,7 @@ def load_regional_intensity(
     region_lookup: dict[tuple[int, str, str], int],
     date: str,
 ) -> None:
-    if not os.path.exists(f"./data/staging/regional_intensity/{date}.parquet"):
+    if not staged_file_exists("regional_intensity", date):
         print(f"WARNING: No staged regional intensity data for {date}, skipping")
         return None
 
@@ -200,16 +204,17 @@ def load_date(date: str) -> None:
         fuel_lookup = preload_fuel_lookup(cursor)
         region_lookup = preload_region_lookup(cursor)
 
-        # Delete THEN Insert
-        cursor.execute(
-        "DELETE FROM fact_intensity WHERE from_date >= %s AND from_date < %s",
-        (f"{date}T00:00Z", f"{next_date}T00:00Z"),
-        )
+        if staged_file_exists("national_intensity", date) or staged_file_exists("regional_intensity", date):
+            cursor.execute(
+                "DELETE FROM fact_intensity WHERE from_date >= %s AND from_date < %s",
+                (f"{date}T00:00Z", f"{next_date}T00:00Z"),
+            )
 
-        cursor.execute(
-        "DELETE FROM fact_generation WHERE from_date >= %s AND from_date < %s",
-        (f"{date}T00:00Z", f"{next_date}T00:00Z"),
-        )
+        if staged_file_exists("generation", date) or staged_file_exists("regional_intensity", date):
+            cursor.execute(
+                "DELETE FROM fact_generation WHERE from_date >= %s AND from_date < %s",
+                (f"{date}T00:00Z", f"{next_date}T00:00Z"),
+            )
 
         load_national_intensity(cursor, date)
         load_generation(cursor, fuel_lookup, date)
