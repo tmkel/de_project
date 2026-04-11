@@ -9,6 +9,7 @@ with fuels as (
 
 categorized as (
     select
+        {{ dbt_utils.generate_surrogate_key(['fuel_type']) }} as fuel_key,
         fuel_type,
         case
             when fuel_type in ('wind', 'solar', 'hydro', 'biomass') then 'renewable'

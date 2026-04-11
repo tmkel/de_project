@@ -1,49 +1,41 @@
 version: 2
 
 models:
-  - name: dim_region
-    description: "UK grid regions from the Carbon Intensity API"
+  - name: mart_daily_intensity_by_region
+    description: "Daily carbon intensity aggregated from half-hourly data, by region"
     columns:
+      - name: daily_intensity_key
+        data_tests:
+          - unique
+          - not_null
+      - name: period_date
+        data_tests:
+          - not_null
       - name: region_id
-        tests:
-          - unique
+        data_tests:
           - not_null
 
-  - name: dim_fuel
-    description: "Fuel types with renewable/fossil/other categorization"
+  - name: mart_daily_generation_mix
+    description: "Daily generation mix by region and fuel type. Note: averages are unweighted (no volume data available)."
     columns:
-      - name: fuel_type
-        tests:
+      - name: daily_generation_key
+        data_tests:
           - unique
           - not_null
-      - name: fuel_category
-        tests:
-          - accepted_values:
-              arguments:
-                values: ['renewable', 'fossil', 'other']
-
-  - name: fct_daily_intensity
-    description: "Daily national carbon intensity aggregated from half-hourly data"
-    columns:
       - name: period_date
-        tests:
-          - unique
-          - not_null
-
-  - name: fct_generation_mix
-    description: "Daily generation mix by fuel type"
-    columns:
-      - name: period_date
-        tests:
+        data_tests:
           - not_null
       - name: fuel_type
-        tests:
+        data_tests:
           - not_null
 
-  - name: fct_forecast_accuracy
-    description: "Daily forecast accuracy metrics"
+  - name: mart_forecast_accuracy
+    description: "Daily forecast accuracy metrics (national only — regional API has no actuals)"
     columns:
-      - name: period_date
-        tests:
+      - name: forecast_accuracy_key
+        data_tests:
           - unique
+          - not_null
+      - name: period_date
+        data_tests:
           - not_null

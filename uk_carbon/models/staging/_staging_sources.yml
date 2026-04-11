@@ -9,37 +9,37 @@ sources:
         description: "Half-hourly national carbon intensity (forecast + actual)"
         columns:
           - name: from_date
-            tests:
+            data_tests:
               - not_null
           - name: to_date
-            tests:
+            data_tests:
               - not_null
 
       - name: raw_generation
         description: "Half-hourly national generation mix by fuel type"
         columns:
           - name: from_date
-            tests:
+            data_tests:
               - not_null
           - name: to_date
-            tests:
+            data_tests:
               - not_null
           - name: fuel
-            tests:
+            data_tests:
               - not_null
 
       - name: raw_regional
         description: "Half-hourly regional intensity and generation mix"
         columns:
           - name: from_date
-            tests:
+            data_tests:
               - not_null
           - name: to_date
-            tests:
+            data_tests:
               - not_null
           - name: regionid
-            tests:
+            data_tests:
               - not_null
           - name: fuel
-            tests:
+            data_tests:
               - not_null

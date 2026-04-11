@@ -14,6 +14,7 @@ with regions as (
 )
 
 select
+    {{ dbt_utils.generate_surrogate_key(['region_id']) }} as region_key,
     region_id,
     dno_region,
     region_shortname

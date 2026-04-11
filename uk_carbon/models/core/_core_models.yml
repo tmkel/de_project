@@ -1,0 +1,118 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Date dimension generated via date_spine (2022-2027)"
+    columns:
+      - name: date_key
+        data_tests:
+          - unique
+          - not_null
+      - name: full_date
+        data_tests:
+          - unique
+          - not_null
+
+  - name: dim_fuel
+    description: "Fuel types with renewable/fossil/other categorization"
+    columns:
+      - name: fuel_key
+        data_tests:
+          - unique
+          - not_null
+      - name: fuel_type
+        data_tests:
+          - unique
+          - not_null
+      - name: fuel_category
+        data_tests:
+          - accepted_values:
+              values: ['renewable', 'fossil', 'other']
+
+  - name: dim_region
+    description: "UK grid regions from the Carbon Intensity API (region_id=0 is National Grid)"
+    columns:
+      - name: region_key
+        data_tests:
+          - unique
+          - not_null
+      - name: region_id
+        data_tests:
+          - unique
+          - not_null
+
+  - name: fct_half_hourly_intensity
+    description: "Half-hourly carbon intensity by region. Grain: period x region. National (region_id=0) has actuals, regional does not."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - period_from
+              - region_id
+    columns:
+      - name: intensity_key
+        data_tests:
+          - unique
+          - not_null
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: region_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region_key
+      - name: period_from
+        data_tests:
+          - not_null
+      - name: region_id
+        data_tests:
+          - not_null
+
+  - name: fct_half_hourly_generation
+    description: "Half-hourly generation mix by region and fuel. Grain: period x region x fuel."
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - period_from
+              - region_id
+              - fuel_type
+    columns:
+      - name: generation_key
+        data_tests:
+          - unique
+          - not_null
+      - name: date_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_date')
+                field: date_key
+      - name: region_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_region')
+                field: region_key
+      - name: fuel_key
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_fuel')
+                field: fuel_key
+      - name: period_from
+        data_tests:
+          - not_null
+      - name: fuel_type
+        data_tests:
+          - not_null
