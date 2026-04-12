@@ -1,3 +1,29 @@
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile.airflow
+  environment: &airflow-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    # Pipeline env vars
+    POSTGRES_HOST: postgres
+    POSTGRES_DB: uk_carbon
+    POSTGRES_USER: uk_carbon_user
+    POSTGRES_PASSWORD: uk_carbon_password
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./src:/opt/airflow/src
+    - ./uk_carbon:/opt/airflow/uk_carbon
+    - ./run_pipeline.py:/opt/airflow/run_pipeline.py
+    - ./uk_carbon/profiles.yml.docker:/home/airflow/.dbt/profiles.yml
+  depends_on:
+    postgres:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -10,8 +36,49 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./src/storage/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./src/storage/init_db.sql:/docker-entrypoint-initdb.d/01-init-carbon.sql
+      - ./airflow-init-db.sql:/docker-entrypoint-initdb.d/00-init-airflow.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U uk_carbon_user -d uk_carbon"]
+      interval: 5s
+      retries: 5
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: uk_carbon_airflow_init
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate &&
+        airflow users create \
+          --username admin \
+          --password admin \
+          --firstname Admin \
+          --lastname User \
+          --role Admin \
+          --email admin@example.com || true
+    restart: "no"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: uk_carbon_airflow_webserver
+    command: airflow webserver --port 8080
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: uk_carbon_airflow_scheduler
+    command: airflow scheduler
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+    restart: always
 
 volumes:
   postgres_data:
-    

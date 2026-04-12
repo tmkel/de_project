@@ -1,0 +1,11 @@
+.git
+.venv
+__pycache__
+data/
+logs/
+dags/
+*.pyc
+.env
+uk_carbon/target/
+uk_carbon/dbt_packages/
+uk_carbon/logs/

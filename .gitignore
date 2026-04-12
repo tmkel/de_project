@@ -214,3 +214,6 @@ data/
 
 # Codex
 .codex
+
+# Airflow
+logs/
