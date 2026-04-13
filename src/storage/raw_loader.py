@@ -11,13 +11,22 @@ def staged_file_exists(dataset: str, date: str) -> bool:
 
 def get_connection() -> psycopg2.extensions.connection | None:
     load_dotenv()  # Load environment variables from .env file
-    db_url = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+
+    # Support both local .env and docker environment variable conventions
+    user = os.getenv('DB_USER') or os.getenv('POSTGRES_USER')
+    password = os.getenv('DB_PASSWORD') or os.getenv('POSTGRES_PASSWORD')
+    host = os.getenv('DB_HOST') or os.getenv('POSTGRES_HOST', 'localhost')
+    port = os.getenv('DB_PORT', '5432')
+    dbname = os.getenv('DB_NAME') or os.getenv('POSTGRES_DB')
+
+
+    db_url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
     try:
         connection = psycopg2.connect(db_url)
-        print(f"{os.getenv('DB_NAME')}: Connection successful!")
+        print(f"{dbname}: Connection successful!")
         return connection
     except psycopg2.Error as e:
-        print(f"{os.getenv('DB_NAME')}: Connection failed: {e}")
+        print(f"{dbname}: Connection failed: {e}")
         return None
 
 def load_raw_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -> None:
