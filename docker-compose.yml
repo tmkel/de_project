@@ -8,6 +8,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
+    PYTHONPATH: /opt/airflow
     # Pipeline env vars
     POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
     POSTGRES_DB: ${POSTGRES_DB:-uk_carbon}
@@ -39,7 +40,7 @@ services:
       - ./src/storage/init_db.sql:/docker-entrypoint-initdb.d/01-init-carbon.sql
       - ./airflow-init-db.sql:/docker-entrypoint-initdb.d/00-init-airflow.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U uk_carbon_user -d uk_carbon"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       retries: 5
 

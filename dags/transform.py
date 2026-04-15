@@ -7,9 +7,6 @@ from airflow import DAG
 from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 
-import sys
-sys.path.insert(0, "/opt/airflow")
-
 logger = logging.getLogger(__name__)
 
 

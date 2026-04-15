@@ -24,7 +24,6 @@ def get_connection() -> psycopg2.extensions.connection | None:
     port = os.getenv('DB_PORT', '5432')
     dbname = os.getenv('DB_NAME') or os.getenv('POSTGRES_DB')
 
-
     db_url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
     try:
         connection = psycopg2.connect(db_url)

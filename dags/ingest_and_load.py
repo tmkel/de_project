@@ -5,9 +5,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-import sys
-sys.path.insert(0, "/opt/airflow")
-
 from src.ingestion import api_client
 from src.storage import raw_loader, staging
 from run_pipeline import validate_raw_data
