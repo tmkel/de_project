@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-import subprocess
 import argparse
 import json
+import logging
+import subprocess
 from pathlib import Path
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from src.ingestion import api_client
 from src.models.schemas import (
@@ -40,12 +43,12 @@ def _date_strings(from_date: str, to_date: str) -> list[str]:
 
 def validate_raw_data(date: str) -> None:
     """Validate saved raw JSON files and persist only records that pass validation."""
-    print(f"Validating data for {date}...")
+    logger.info("Validating data for %s", date)
 
     for dataset_name, config in RAW_DATASET_CONFIG.items():
         file_path = config["path"] / f"{date}.json"
         if not file_path.exists():
-            print(f"WARNING: No raw {dataset_name} data for {date}, skipping validation")
+            logger.warning("No raw %s data for %s, skipping validation", dataset_name, date)
             continue
 
         with file_path.open("r") as file_handle:
@@ -60,11 +63,12 @@ def validate_raw_data(date: str) -> None:
         with file_path.open("w") as file_handle:
             json.dump(sanitized_records, file_handle, indent=4)
 
-        print(
-            f"{dataset_name}: kept {len(sanitized_records)} of {len(raw_records)} records"
+        logger.info(
+            "%s: kept %d of %d records",
+            dataset_name,
+            len(sanitized_records),
+            len(raw_records),
         )
-
-    print("-" * 50 + "\n")
 
 
 def run_pipeline(
@@ -77,25 +81,25 @@ def run_pipeline(
 ) -> None:
     """Run the pipeline steps in order, with optional ingest/load skips."""
     if not skip_ingest:
-        print("Starting ingestion...")
+        logger.info("Starting ingestion")
         api_client.main(from_date, to_date)
     else:
-        print("Skipping ingestion and using existing raw files.")
+        logger.info("Skipping ingestion and using existing raw files")
 
     for date in _date_strings(from_date, to_date):
         validate_raw_data(date)
 
-    print("Starting staging...")
+    logger.info("Starting staging")
     staging.main(from_date, to_date)
 
     if not skip_load:
-        print("Starting load...")
+        logger.info("Starting load")
         raw_loader.main(from_date, to_date)
     else:
-        print("Skipping load.")
+        logger.info("Skipping load")
 
     if not skip_load and not skip_transform:
-        print("Starting dbt transform...")
+        logger.info("Starting dbt transform")
         dbt_dir = Path(__file__).parent / "uk_carbon"
 
         result = subprocess.run(
@@ -104,12 +108,13 @@ def run_pipeline(
             capture_output=True,
             text=True,
         )
-        print(result.stdout)
+        if result.stdout:
+            logger.info(result.stdout)
         if result.returncode != 0:
-            print(f"dbt build failed:\n{result.stderr}")
+            logger.error("dbt build failed:\n%s", result.stderr)
             raise SystemExit(1)
     else:
-        print("Skipping dbt transform.")
+        logger.info("Skipping dbt transform")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -139,6 +144,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     """Parse CLI arguments and execute the pipeline."""
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+    )
     args = build_parser().parse_args()
     run_pipeline(
         args.from_date,

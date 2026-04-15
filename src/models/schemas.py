@@ -8,8 +8,11 @@ Cover:
 - Regional Intensity endpoints
 """
 
+import logging
 from typing import Optional
 from pydantic import BaseModel, Field, field_validator
+
+logger = logging.getLogger(__name__)
 
 
 # --- National Intensity endpoint ---
@@ -81,7 +84,7 @@ def validate_intensity_response(data: list) -> list[IntensityRecord]:
         try:
             valid.append(IntensityRecord.model_validate(record))
         except Exception as e:
-            print(f"   WARNING: Skipping National Intensity record {i}: {e}")
+            logger.warning("Skipping National Intensity record %d: %s", i, e)
     return valid
 
 
@@ -92,7 +95,7 @@ def validate_generation_mix_response(data: list) -> list[GenerationMixRecord]:
         try:
             valid.append(GenerationMixRecord.model_validate(record))
         except Exception as e:
-            print(f"   WARNING: Skipping National Generation Mix record {i}: {e}")
+            logger.warning("Skipping National Generation Mix record %d: %s", i, e)
     return valid
 
 
@@ -103,5 +106,5 @@ def validate_regional_response(data: list) -> list[RegionalIntensityRecord]:
         try:
             valid.append(RegionalIntensityRecord.model_validate(record))
         except Exception as e:
-            print(f"   WARNING: Skipping Regional Intensity record {i}: {e}")
+            logger.warning("Skipping Regional Intensity record %d: %s", i, e)
     return valid

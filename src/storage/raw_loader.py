@@ -1,8 +1,12 @@
+import logging
+import os
+from datetime import datetime, timedelta
+
+import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
-import os
-import pandas as pd
-from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 
 def staged_file_exists(dataset: str, date: str) -> bool:
@@ -23,10 +27,10 @@ def get_connection() -> psycopg2.extensions.connection | None:
     db_url = f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
     try:
         connection = psycopg2.connect(db_url)
-        print(f"{dbname}: Connection successful!")
+        logger.info("%s: Connection successful", dbname)
         return connection
     except psycopg2.Error as e:
-        print(f"{dbname}: Connection failed: {e}")
+        logger.error("%s: Connection failed: %s", dbname, e)
         return None
 
 def load_raw_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -> None:
@@ -47,7 +51,7 @@ def load_raw_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -
             )
         )
 
-    print(f"Raw national intensity data for {date} loaded successfully into raw_national_intensity table.")
+    logger.info("Raw national intensity data for %s loaded into raw_national_intensity", date)
 
 
 def load_raw_generation(
@@ -68,7 +72,7 @@ def load_raw_generation(
                 row['perc']
             )
         )
-    print(f"Raw generation data for {date} loaded successfully into raw_generation table.")
+    logger.info("Raw generation data for %s loaded into raw_generation", date)
 
 
 def load_raw_regional_intensity(
@@ -94,12 +98,12 @@ def load_raw_regional_intensity(
                 row['percentage']
             )
         )
-    print(f"Raw regional intensity data for {date} loaded successfully into raw_regional table.")
+    logger.info("Raw regional intensity data for %s loaded into raw_regional", date)
 
 def load_raw_date(date: str) -> None:
     connection = get_connection()
     if not connection:
-        print("Failed to connect to the database. Cannot load data.")
+        logger.error("Failed to connect to the database. Cannot load data.")
         return
     cursor = connection.cursor()
 
@@ -114,7 +118,7 @@ def load_raw_date(date: str) -> None:
             )
             load_raw_national_intensity(cursor, date)
         else:
-            print(f"WARNING: No staged national intensity data for {date}, skipping")
+            logger.warning("No staged national intensity data for %s, skipping", date)
 
         if staged_file_exists("generation", date):
             cursor.execute(
@@ -123,7 +127,7 @@ def load_raw_date(date: str) -> None:
             )
             load_raw_generation(cursor, date)
         else:
-            print(f"WARNING: No staged generation data for {date}, skipping")
+            logger.warning("No staged generation data for %s, skipping", date)
 
         if staged_file_exists("regional_intensity", date):
             cursor.execute(
@@ -132,12 +136,12 @@ def load_raw_date(date: str) -> None:
             )
             load_raw_regional_intensity(cursor, date)
         else:
-            print(f"WARNING: No staged regional intensity data for {date}, skipping")
+            logger.warning("No staged regional intensity data for %s, skipping", date)
 
         connection.commit()
     except Exception as e:
         connection.rollback()
-        print(f"Error loading staging data for {date}: {e}")
+        logger.error("Error loading staging data for %s: %s", date, e)
     finally:
         cursor.close()
         connection.close()
@@ -145,9 +149,8 @@ def load_raw_date(date: str) -> None:
 def main(from_date: str, to_date: str) -> None:
     for date in pd.date_range(start=from_date, end=to_date, freq="D"):
         date_str = date.strftime("%Y-%m-%d")
-        print(f"Loading staging data for {date_str} into raw tables...")
+        logger.info("Loading staging data for %s into raw tables", date_str)
         load_raw_date(date_str)
-        print("-" * 50 + "\n")
 
 
 if __name__ == "__main__":

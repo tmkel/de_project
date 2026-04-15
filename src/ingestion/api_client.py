@@ -2,12 +2,16 @@
 Download raw national and regional carbon-intensity and generation mix datasets from the UK API.
 """
 
-import os
 import json
+import logging
+import os
 import time
-import requests
-import pandas as pd
 from datetime import datetime, timedelta
+
+import pandas as pd
+import requests
+
+logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.carbonintensity.org.uk"
 
@@ -26,11 +30,11 @@ def _fetch_data(endpoint: str, context: str) -> list:
         response.raise_for_status()
         return response.json().get("data", [])
     except requests.exceptions.Timeout:
-        print(f"Request timed out for {context}")
+        logger.error("Request timed out for %s", context)
     except requests.exceptions.HTTPError as exc:
-        print(f"HTTP error for {context}: {exc}")
+        logger.error("HTTP error for %s: %s", context, exc)
     except Exception as exc:
-        print(f"Unexpected error for {context}: {exc}")
+        logger.error("Unexpected error for %s: %s", context, exc)
 
     return []
 
@@ -88,14 +92,13 @@ def get_intensity_gm_regional(date: str) -> list:
 
 def fetch_daily_datasets(date: str) -> dict[str, list]:
     """Fetch all raw datasets for a single day and return them by dataset name."""
-    print(f"Fetching data for {date}...")
-    print("National Intensity...")
+    logger.info("Fetching data for %s", date)
+    logger.info("National Intensity...")
     intensity_data = get_carbon_intensity_national(date)
-    print("National Generation Mix...")
+    logger.info("National Generation Mix...")
     generation_data = get_generation_mix_national(date)
-    print("Regional Intensity and Mix...")
+    logger.info("Regional Intensity and Mix...")
     regional_data = get_intensity_gm_regional(date)
-    print("-" * 50 + "\n")
 
     return {
         "national_intensity": intensity_data,
