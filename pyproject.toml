@@ -1,12 +1,11 @@
 [project]
 name = "de-project"
 version = "0.1.0"
-description = "Add your description here"
+description = "UK Carbon Intensity data pipeline — ingest, validate, stage, load, and transform UK electricity grid carbon-intensity data with Python, dbt, Airflow, and PostgreSQL."
 readme = "README.md"
 requires-python = ">=3.12,<3.14"
 dependencies = [
     "dbt-postgres>=1.10.0",
-    "duckdb>=1.5.0",
     "pandas>=3.0.1",
     "psycopg2-binary>=2.9.11",
     "pyarrow>=23.0.1",

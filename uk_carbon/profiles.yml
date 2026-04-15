@@ -1,0 +1,12 @@
+uk_carbon:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('DB_HOST', env_var('POSTGRES_HOST', 'localhost')) }}"
+      port: "{{ env_var('DB_PORT', '5432') | int }}"
+      user: "{{ env_var('DB_USER', env_var('POSTGRES_USER', 'uk_carbon_user')) }}"
+      pass: "{{ env_var('DB_PASSWORD', env_var('POSTGRES_PASSWORD', 'uk_carbon_password')) }}"
+      dbname: "{{ env_var('DB_NAME', env_var('POSTGRES_DB', 'uk_carbon')) }}"
+      schema: public
+      threads: 2

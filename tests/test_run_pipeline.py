@@ -43,14 +43,14 @@ def test_validate_raw_data_filters_invalid_records(tmp_path, monkeypatch):
 
 
 class TestRunPipeline:
-    @patch("run_pipeline.loader.main")
+    @patch("run_pipeline.raw_loader.main")
     @patch("run_pipeline.staging.main")
     @patch("run_pipeline.validate_raw_data")
     @patch("run_pipeline.api_client.main")
     def test_runs_all_steps_in_order(
         self, mock_ingest, mock_validate, mock_stage, mock_load
     ):
-        run_pipeline("2022-01-01", "2022-01-02")
+        run_pipeline("2022-01-01", "2022-01-02", skip_transform=True)
 
         mock_ingest.assert_called_once_with("2022-01-01", "2022-01-02")
         assert mock_validate.call_args_list == [
@@ -60,21 +60,23 @@ class TestRunPipeline:
         mock_stage.assert_called_once_with("2022-01-01", "2022-01-02")
         mock_load.assert_called_once_with("2022-01-01", "2022-01-02")
 
-    @patch("run_pipeline.loader.main")
+    @patch("run_pipeline.raw_loader.main")
     @patch("run_pipeline.staging.main")
     @patch("run_pipeline.validate_raw_data")
     @patch("run_pipeline.api_client.main")
     def test_skip_ingest_reuses_existing_raw_files(
         self, mock_ingest, mock_validate, mock_stage, mock_load
     ):
-        run_pipeline("2022-01-01", "2022-01-01", skip_ingest=True)
+        run_pipeline(
+            "2022-01-01", "2022-01-01", skip_ingest=True, skip_transform=True
+        )
 
         mock_ingest.assert_not_called()
         mock_validate.assert_called_once_with("2022-01-01")
         mock_stage.assert_called_once_with("2022-01-01", "2022-01-01")
         mock_load.assert_called_once_with("2022-01-01", "2022-01-01")
 
-    @patch("run_pipeline.loader.main")
+    @patch("run_pipeline.raw_loader.main")
     @patch("run_pipeline.staging.main")
     @patch("run_pipeline.validate_raw_data")
     @patch("run_pipeline.api_client.main")

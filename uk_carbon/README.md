@@ -14,8 +14,7 @@ dbt transformation layer for the UK Carbon Intensity pipeline.
 
 ```bash
 # From the uk_carbon/ directory
-dbt run --profiles-dir .
-dbt test --profiles-dir .
+dbt build --profiles-dir .
 dbt docs generate --profiles-dir .
 ```
 

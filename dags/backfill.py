@@ -1,5 +1,6 @@
 """DAG: Backfill historical data (manual trigger only)."""
 
+import logging
 from datetime import datetime, timedelta
 
 from airflow import DAG
@@ -11,6 +12,8 @@ sys.path.insert(0, "/opt/airflow")
 from src.ingestion import api_client
 from src.storage import raw_loader, staging
 from run_pipeline import validate_raw_data
+
+logger = logging.getLogger(__name__)
 
 
 default_args = {
@@ -58,7 +61,7 @@ with DAG(
 
         for window_start in windows:
             window_end = min(window_start + timedelta(days=13), end)
-            print(f"Backfilling {window_start.date()} to {window_end.date()}")
+            logger.info("Backfilling %s to %s", window_start.date(), window_end.date())
             _backfill_window(
                 window_start.strftime("%Y-%m-%d"),
                 window_end.strftime("%Y-%m-%d"),

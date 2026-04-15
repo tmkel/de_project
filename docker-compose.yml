@@ -19,7 +19,7 @@ x-airflow-common: &airflow-common
     - ./src:/opt/airflow/src
     - ./uk_carbon:/opt/airflow/uk_carbon
     - ./run_pipeline.py:/opt/airflow/run_pipeline.py
-    - ./uk_carbon/profiles.yml.docker:/home/airflow/.dbt/profiles.yml
+    - ./uk_carbon/profiles.yml:/home/airflow/.dbt/profiles.yml
   depends_on:
     postgres:
       condition: service_healthy

@@ -134,10 +134,9 @@ cp .env.example .env
 # Run the pipeline for a date range
 uv run python run_pipeline.py --from-date 2024-01-01 --to-date 2024-01-07
 
-# Run dbt
+# Run dbt (models + tests)
 cd uk_carbon
-dbt run --profiles-dir .
-dbt test --profiles-dir .
+dbt build --profiles-dir .
 ```
 
 ## Project Structure
