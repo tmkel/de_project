@@ -36,22 +36,25 @@ def get_connection() -> psycopg2.extensions.connection | None:
 def load_raw_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -> None:
     national_intensity_df = pd.read_parquet(f"./data/staging/national_intensity/{date}.parquet")
 
-    for _, row in national_intensity_df.iterrows():
-        cursor.execute(
-            '''
-            INSERT INTO raw_national_intensity (from_date, to_date, forecast, actual, intensity_index)
-            VALUES (%s, %s, %s, %s, %s)
-            ''',
-            (
-                row['from'],
-                row['to'],
-                row['intensity.forecast'],
-                row['intensity.actual'],
-                row['intensity.index']
-            )
+    rows = [
+        (
+            row['from'],
+            row['to'],
+            row['intensity.forecast'],
+            row['intensity.actual'],
+            row['intensity.index'],
         )
+        for _, row in national_intensity_df.iterrows()
+    ]
+    cursor.executemany(
+        '''
+        INSERT INTO raw_national_intensity (from_date, to_date, forecast, actual, intensity_index)
+        VALUES (%s, %s, %s, %s, %s)
+        ''',
+        rows,
+    )
 
-    logger.info("Raw national intensity data for %s loaded into raw_national_intensity", date)
+    logger.info("Raw national intensity data for %s loaded into raw_national_intensity (%d rows)", date, len(rows))
 
 
 def load_raw_generation(
@@ -59,20 +62,23 @@ def load_raw_generation(
     date: str,
 ) -> None:
     generation_df = pd.read_parquet(f"./data/staging/generation/{date}.parquet")
-    for _, row in generation_df.iterrows():
-        cursor.execute(
-            '''
-            INSERT INTO raw_generation (from_date, to_date, fuel, perc)
-            VALUES (%s, %s, %s, %s)
-            ''',
-            (
-                row['from'],
-                row['to'],
-                row['fuel'],
-                row['perc']
-            )
+    rows = [
+        (
+            row['from'],
+            row['to'],
+            row['fuel'],
+            row['perc'],
         )
-    logger.info("Raw generation data for %s loaded into raw_generation", date)
+        for _, row in generation_df.iterrows()
+    ]
+    cursor.executemany(
+        '''
+        INSERT INTO raw_generation (from_date, to_date, fuel, perc)
+        VALUES (%s, %s, %s, %s)
+        ''',
+        rows,
+    )
+    logger.info("Raw generation data for %s loaded into raw_generation (%d rows)", date, len(rows))
 
 
 def load_raw_regional_intensity(
@@ -81,24 +87,28 @@ def load_raw_regional_intensity(
 ) -> None:
     regional_intensity_fuel_df = pd.read_parquet(f"./data/staging/regional_intensity/{date}.parquet")
 
-    for _, row in regional_intensity_fuel_df.iterrows():
-        cursor.execute('''
-            INSERT INTO raw_regional (from_date, to_date, regionid, dnoregion, shortname, forecast, intensity_index, fuel, perc)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ''',
-            (
-                row['from'],
-                row['to'],
-                row['regionid'],
-                row['dnoregion'],
-                row['shortname'],
-                row['intensity.forecast'],
-                row['intensity.index'],
-                row['fuel'],
-                row['percentage']
-            )
+    rows = [
+        (
+            row['from'],
+            row['to'],
+            row['regionid'],
+            row['dnoregion'],
+            row['shortname'],
+            row['intensity.forecast'],
+            row['intensity.index'],
+            row['fuel'],
+            row['percentage'],
         )
-    logger.info("Raw regional intensity data for %s loaded into raw_regional", date)
+        for _, row in regional_intensity_fuel_df.iterrows()
+    ]
+    cursor.executemany(
+        '''
+        INSERT INTO raw_regional (from_date, to_date, regionid, dnoregion, shortname, forecast, intensity_index, fuel, perc)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ''',
+        rows,
+    )
+    logger.info("Raw regional intensity data for %s loaded into raw_regional (%d rows)", date, len(rows))
 
 def load_raw_date(date: str) -> None:
     connection = get_connection()
