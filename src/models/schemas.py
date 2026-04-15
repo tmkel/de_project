@@ -56,7 +56,7 @@ class GenerationMixRecord(BaseModel):
     generationmix: list[GenerationMixData]
 
 
-# --- Reginal Intensity endpoint ---
+# --- Regional Intensity endpoint ---
 class RegionalData(BaseModel):
     regionid: int
     dnoregion: str
