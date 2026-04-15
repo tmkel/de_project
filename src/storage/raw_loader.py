@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 from datetime import datetime, timedelta
@@ -164,4 +165,8 @@ def main(from_date: str, to_date: str) -> None:
 
 
 if __name__ == "__main__":
-    main("2022-01-01", "2022-01-05")
+    parser = argparse.ArgumentParser(description="Load staged parquet files into raw PostgreSQL tables.")
+    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
+    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    args = parser.parse_args()
+    main(args.from_date, args.to_date)

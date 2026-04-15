@@ -2,6 +2,7 @@
 Download raw national and regional carbon-intensity and generation mix datasets from the UK API.
 """
 
+import argparse
 import json
 import logging
 import os
@@ -133,4 +134,8 @@ def main(from_date: str, to_date: str) -> None:
 
 
 if __name__ == "__main__":
-    main(from_date="2022-01-01", to_date="2022-01-05")
+    parser = argparse.ArgumentParser(description="Fetch UK Carbon Intensity datasets for a date range.")
+    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
+    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    args = parser.parse_args()
+    main(from_date=args.from_date, to_date=args.to_date)
