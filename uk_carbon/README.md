@@ -1,15 +1,24 @@
-Welcome to your new dbt project!
+# uk_carbon dbt project
 
-### Using the starter project
+dbt transformation layer for the UK Carbon Intensity pipeline.
 
-Try running the following commands:
-- dbt run
-- dbt test
+## Models
 
+**Staging** (views): `stg_national_intensity`, `stg_generation`, `stg_regional`
 
-### Resources:
-- Learn more about dbt [in the docs](https://docs.getdbt.com/docs/introduction)
-- Check out [Discourse](https://discourse.getdbt.com/) for commonly asked questions and answers
-- Join the [chat](https://community.getdbt.com/) on Slack for live discussions and support
-- Find [dbt events](https://events.getdbt.com) near you
-- Check out [the blog](https://blog.getdbt.com/) for the latest news on dbt's development and best practices
+**Core** (tables): `dim_date`, `dim_fuel`, `dim_region`, `fct_half_hourly_intensity`, `fct_half_hourly_generation`
+
+**Marts** (tables): `mart_daily_intensity_by_region`, `mart_daily_generation_mix`, `mart_forecast_accuracy`
+
+## Usage
+
+```bash
+# From the uk_carbon/ directory
+dbt run --profiles-dir .
+dbt test --profiles-dir .
+dbt docs generate --profiles-dir .
+```
+
+## Tests
+
+54 data tests including referential integrity checks (relationships), uniqueness, not-null, accepted values, and a custom range test for intensity values (0-1000 gCO2/kWh).
