@@ -5,14 +5,14 @@ x-airflow-common: &airflow-common
   environment: &airflow-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
-    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY:-}
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__WEBSERVER__EXPOSE_CONFIG: 'true'
     # Pipeline env vars
-    POSTGRES_HOST: postgres
-    POSTGRES_DB: uk_carbon
-    POSTGRES_USER: uk_carbon_user
-    POSTGRES_PASSWORD: uk_carbon_password
+    POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+    POSTGRES_DB: ${POSTGRES_DB:-uk_carbon}
+    POSTGRES_USER: ${POSTGRES_USER:-uk_carbon_user}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uk_carbon_password}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -29,9 +29,9 @@ services:
     image: postgres:16-alpine
     container_name: uk_carbon_postgres
     environment:
-      POSTGRES_DB: uk_carbon
-      POSTGRES_USER: uk_carbon_user
-      POSTGRES_PASSWORD: uk_carbon_password
+      POSTGRES_DB: ${POSTGRES_DB:-uk_carbon}
+      POSTGRES_USER: ${POSTGRES_USER:-uk_carbon_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uk_carbon_password}
     ports:
       - "5432:5432"
     volumes:
