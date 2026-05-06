@@ -6,7 +6,7 @@ A production-style data pipeline that ingests, validates, transforms, and serves
 
 This pipeline pulls half-hourly carbon intensity and generation mix data from the [UK Carbon Intensity API](https://carbonintensity.org.uk/), validates it with Pydantic, stages it as Parquet, loads it into PostgreSQL, and transforms it through a dimensional model using dbt. Airflow orchestrates the full workflow on a daily schedule.
 
-The data covers three dimensions of the UK grid: national carbon intensity (forecast vs. actual), generation mix by fuel type, and regional breakdowns across 19 UK grid regions (14 DNO regions, National Grid, and country-level aggregates).
+The data covers two dimensions of the UK grid: carbon intensity (forecast vs. actual) and generation mix by fuel type, at both nation and regional level.
 
 ## Architecture
 
@@ -111,12 +111,24 @@ cd de_project
 
 # Create .env from template
 cp .env.example .env
+mkdir -p logs
+
+# Linux/macOS: if `id -u` is not 1000, update AIRFLOW_UID in .env to match it.
 
 # Start all services (PostgreSQL + Airflow)
 docker compose up -d
 
 # Airflow UI available at http://localhost:8080
 # Default login: admin / admin
+```
+
+dbt does not run a separate web app by default. To view dbt docs after the
+database has models built, start the optional docs service:
+
+```bash
+docker compose --profile docs up dbt-docs
+
+# dbt docs available at http://localhost:8081
 ```
 
 ### Run locally (without Airflow)

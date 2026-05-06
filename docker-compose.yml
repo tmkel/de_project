@@ -2,6 +2,7 @@ x-airflow-common: &airflow-common
   build:
     context: .
     dockerfile: Dockerfile.airflow
+  user: "${AIRFLOW_UID:-50000}:0"
   environment: &airflow-env
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/airflow
@@ -80,6 +81,26 @@ services:
       airflow-init:
         condition: service_completed_successfully
     restart: always
+
+  dbt-docs:
+    <<: *airflow-common
+    container_name: uk_carbon_dbt_docs
+    profiles:
+      - docs
+    command:
+      - bash
+      - -c
+      - |
+        cd /opt/airflow/uk_carbon &&
+        dbt deps &&
+        dbt docs generate --profiles-dir . &&
+        dbt docs serve --profiles-dir . --host 0.0.0.0 --port 8081 --no-browser
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
 
 volumes:
   postgres_data:
