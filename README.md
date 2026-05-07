@@ -109,8 +109,7 @@ The transform DAG checks data freshness before running dbt, rather than using Ex
 git clone https://github.com/tmkel/de_project.git
 cd de_project
 
-# Create .env from template, then append your host UID so Airflow writes
-# logs/files as you (not as root or UID 50000)
+# Create .env from template, then append your host UID to .env file
 cp .env.example .env
 mkdir -p logs
 echo "AIRFLOW_UID=$(id -u)" >> .env
@@ -175,8 +174,7 @@ de_project/
 │       └── marts/               #   3 aggregated tables
 ├── tests/                       # Python test suite
 ├── docker-compose.yml           # PostgreSQL + Airflow services
-├── Dockerfile                   # Pipeline image
-├── Dockerfile.airflow           # Airflow image
+├── Dockerfile.airflow           # Airflow image (uv-built from pyproject.toml)
 ├── run_pipeline.py              # CLI entry point
 └── .env.example                 # Environment variable template
 ```
