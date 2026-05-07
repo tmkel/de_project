@@ -48,6 +48,7 @@ services:
   airflow-init:
     <<: *airflow-common
     container_name: uk_carbon_airflow_init
+    user: "0:0"
     entrypoint: /bin/bash
     command:
       - -c

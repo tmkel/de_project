@@ -109,11 +109,11 @@ The transform DAG checks data freshness before running dbt, rather than using Ex
 git clone https://github.com/tmkel/de_project.git
 cd de_project
 
-# Create .env from template
+# Create .env from template, then append your host UID so Airflow writes
+# logs/files as you (not as root or UID 50000)
 cp .env.example .env
 mkdir -p logs
-
-# Linux/macOS: if `id -u` is not 1000, update AIRFLOW_UID in .env to match it.
+echo "AIRFLOW_UID=$(id -u)" >> .env
 
 # Start all services (PostgreSQL + Airflow)
 docker compose up -d
