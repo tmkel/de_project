@@ -1,5 +1,11 @@
 """
-Download raw national and regional carbon-intensity and generation mix datasets from the UK API.
+Pipeline Step 1: Ingestion
+Download data from the UK API
+
+Covers:
+- national-intensity
+- generation (both national and regional)
+- regional-intensity
 """
 
 import argparse
@@ -76,8 +82,8 @@ def get_intensity_gm_regional(date: str) -> list:
     """
     Fetch regional intensity and generation mix data for a single UTC day.
 
-    Like the generation endpoint, this API call uses the next day and then
-    filters the response back to the requested date.
+    This endpoint is queried using the next day and then filtered back to the
+    requested date because of how the upstream API exposes its 24-hour window.
     """
     next_date = (datetime.strptime(date, "%Y-%m-%d") + timedelta(days=1)).strftime(
         "%Y-%m-%d"

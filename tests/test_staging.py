@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pandas as pd
 
-from src.storage import staging
+from src.staging import staging
 
 
 SAMPLE_NATIONAL_INTENSITY = [

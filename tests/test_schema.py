@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.models.schemas import (
+from src.validation.validate import (
     GenerationMixRecord,
     IntensityRecord,
     RegionalIntensityRecord,

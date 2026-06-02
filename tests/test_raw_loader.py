@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pandas as pd
 import pytest
 
-from src.storage import raw_loader
+from src.storage import psql_loader
 
 
 NATIONAL_INTENSITY_ROWS = pd.DataFrame(
@@ -66,12 +66,12 @@ class TestStagedFileExists:
         (staging_dir / "2022-01-01.parquet").write_bytes(b"")
         monkeypatch.chdir(tmp_path)
 
-        assert raw_loader.staged_file_exists("national_intensity", "2022-01-01") is True
+        assert psql_loader.staged_file_exists("national_intensity", "2022-01-01") is True
 
     def test_returns_false_when_parquet_missing(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        assert raw_loader.staged_file_exists("national_intensity", "2022-01-01") is False
+        assert psql_loader.staged_file_exists("national_intensity", "2022-01-01") is False
 
 
 class TestLoadRawNationalIntensity:
@@ -82,7 +82,7 @@ class TestLoadRawNationalIntensity:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        raw_loader.load_raw_national_intensity(cursor, "2022-01-01")
+        psql_loader.load_raw_national_intensity(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -100,7 +100,7 @@ class TestLoadRawGeneration:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        raw_loader.load_raw_generation(cursor, "2022-01-01")
+        psql_loader.load_raw_generation(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -118,7 +118,7 @@ class TestLoadRawRegionalIntensity:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        raw_loader.load_raw_regional_intensity(cursor, "2022-01-01")
+        psql_loader.load_raw_regional_intensity(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -152,9 +152,9 @@ class TestLoadRawDate:
         cursor = MagicMock()
         connection = MagicMock()
         connection.cursor.return_value = cursor
-        monkeypatch.setattr(raw_loader, "get_connection", lambda: connection)
+        monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        raw_loader.load_raw_date("2022-01-01")
+        psql_loader.load_raw_date("2022-01-01")
 
         delete_statements = [
             call.args[0]
@@ -178,9 +178,9 @@ class TestLoadRawDate:
         cursor.executemany.side_effect = RuntimeError("boom")
         connection = MagicMock()
         connection.cursor.return_value = cursor
-        monkeypatch.setattr(raw_loader, "get_connection", lambda: connection)
+        monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        raw_loader.load_raw_date("2022-01-01")
+        psql_loader.load_raw_date("2022-01-01")
 
         connection.rollback.assert_called_once()
         connection.commit.assert_not_called()
@@ -193,15 +193,15 @@ class TestLoadRawDate:
         cursor = MagicMock()
         connection = MagicMock()
         connection.cursor.return_value = cursor
-        monkeypatch.setattr(raw_loader, "get_connection", lambda: connection)
+        monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        raw_loader.load_raw_date("2022-01-01")
+        psql_loader.load_raw_date("2022-01-01")
 
         cursor.execute.assert_not_called()
         cursor.executemany.assert_not_called()
         connection.commit.assert_called_once()
 
     def test_returns_early_when_connection_fails(self, monkeypatch):
-        monkeypatch.setattr(raw_loader, "get_connection", lambda: None)
+        monkeypatch.setattr(psql_loader, "get_connection", lambda: None)
 
-        raw_loader.load_raw_date("2022-01-01")
+        psql_loader.load_raw_date("2022-01-01")

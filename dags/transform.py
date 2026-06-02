@@ -28,7 +28,7 @@ with DAG(
 
     def _check_fresh_data(**context):
         """Verify that today's raw data exists before running dbt."""
-        from src.storage.raw_loader import get_connection
+        from src.storage.psql_loader import get_connection
 
         target_date = (context["logical_date"] - timedelta(days=1)).strftime("%Y-%m-%d")
         conn = get_connection()

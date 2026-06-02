@@ -3,7 +3,7 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from src.ingestion import api_client
+from src.ingestion import ingest_api
 
 
 def _mock_response(json_data, status_code=200):
@@ -21,12 +21,12 @@ class TestFetchData:
             {"data": [{"from": "2022-01-01T00:00Z", "value": 1}]}
         )
 
-        result = api_client._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
+        result = ingest_api._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
 
         assert result == [{"from": "2022-01-01T00:00Z", "value": 1}]
         mock_get.assert_called_once_with(
             "https://api.carbonintensity.org.uk/intensity/date/2022-01-01",
-            headers=api_client.headers,
+            headers=ingest_api.headers,
             timeout=30,
         )
 
@@ -34,7 +34,7 @@ class TestFetchData:
     def test_returns_empty_list_on_timeout(self, mock_get):
         mock_get.side_effect = requests.exceptions.Timeout
 
-        result = api_client._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
+        result = ingest_api._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
 
         assert result == []
 
@@ -46,7 +46,7 @@ class TestFetchData:
         )
         mock_get.return_value = mock_response
 
-        result = api_client._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
+        result = ingest_api._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
 
         assert result == []
 
@@ -54,7 +54,7 @@ class TestFetchData:
     def test_returns_empty_list_on_unexpected_error(self, mock_get):
         mock_get.side_effect = Exception("boom")
 
-        result = api_client._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
+        result = ingest_api._fetch_data("/intensity/date/2022-01-01", "2022-01-01")
 
         assert result == []
 
@@ -78,7 +78,7 @@ class TestGetters:
             }
         )
 
-        result = api_client.get_carbon_intensity_national("2022-01-01")
+        result = ingest_api.get_carbon_intensity_national("2022-01-01")
 
         assert len(result) == 1
         assert result[0]["intensity"]["forecast"] == 74
@@ -91,7 +91,7 @@ class TestGetters:
             {"from": "2022-01-02T00:00Z", "generationmix": [{"fuel": "solar"}]},
         ]
 
-        result = api_client.get_generation_mix_national("2022-01-01")
+        result = ingest_api.get_generation_mix_national("2022-01-01")
 
         assert len(result) == 2
         assert all(record["from"].startswith("2022-01-01") for record in result)
@@ -109,7 +109,7 @@ class TestGetters:
             {"from": "2022-01-02T00:00Z", "regions": [{"regionid": 2}]},
         ]
 
-        result = api_client.get_intensity_gm_regional("2022-01-01")
+        result = ingest_api.get_intensity_gm_regional("2022-01-01")
 
         assert result == [{"from": "2022-01-01T00:00Z", "regions": [{"regionid": 1}]}]
         mock_fetch.assert_called_once_with(
@@ -129,7 +129,7 @@ class TestFetchDailyDatasets:
         mock_generation.return_value = [{"kind": "generation"}]
         mock_regional.return_value = [{"kind": "regional"}]
 
-        result = api_client.fetch_daily_datasets("2022-01-01")
+        result = ingest_api.fetch_daily_datasets("2022-01-01")
 
         assert result == {
             "national_intensity": [{"kind": "intensity"}],
@@ -151,7 +151,7 @@ class TestSaveDailyDatasets:
             "regional_intensity": [{"value": 3}],
         }
 
-        api_client.save_daily_datasets("2022-01-01", datasets, output_dirs=output_dirs)
+        ingest_api.save_daily_datasets("2022-01-01", datasets, output_dirs=output_dirs)
 
         assert json.loads(
             (tmp_path / "national_intensity" / "2022-01-01.json").read_text()
@@ -166,7 +166,7 @@ class TestSaveDailyDatasets:
     def test_writes_empty_list_for_missing_dataset_key(self, tmp_path):
         output_dirs = {"national_intensity": str(tmp_path / "national_intensity")}
 
-        api_client.save_daily_datasets("2022-01-01", {}, output_dirs=output_dirs)
+        ingest_api.save_daily_datasets("2022-01-01", {}, output_dirs=output_dirs)
 
         assert json.loads(
             (tmp_path / "national_intensity" / "2022-01-01.json").read_text()
@@ -183,7 +183,7 @@ class TestMain:
             {"national_intensity": [4], "generation": [5], "regional_intensity": [6]},
         ]
 
-        api_client.main("2022-01-01", "2022-01-02")
+        ingest_api.main("2022-01-01", "2022-01-02")
 
         assert mock_fetch_daily.call_count == 2
         mock_fetch_daily.assert_any_call("2022-01-01")

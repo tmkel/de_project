@@ -1,4 +1,10 @@
-"""Single entry point for the ingest -> validate -> stage -> load workflow."""
+"""
+Pipeline Entry Point
+src.ingest
+    ingest_api.py, 
+src.validate
+    validate.py
+stage -> load workflow."""
 
 from __future__ import annotations
 
@@ -10,15 +16,17 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.staging import staging
+
 logger = logging.getLogger(__name__)
 
-from src.ingestion import api_client
-from src.models.schemas import (
+from src.ingestion import ingest_api
+from src.validation.validate import (
     validate_generation_mix_response,
     validate_intensity_response,
     validate_regional_response,
 )
-from src.storage import raw_loader, staging
+from src.storage import psql_loader
 
 RAW_DATASET_CONFIG = {
     "national_intensity": {
@@ -82,7 +90,7 @@ def run_pipeline(
     """Run the pipeline steps in order, with optional ingest/load skips."""
     if not skip_ingest:
         logger.info("Starting ingestion")
-        api_client.main(from_date, to_date)
+        ingest_api.main(from_date, to_date)
     else:
         logger.info("Skipping ingestion and using existing raw files")
 
@@ -94,7 +102,7 @@ def run_pipeline(
 
     if not skip_load:
         logger.info("Starting load")
-        raw_loader.main(from_date, to_date)
+        psql_loader.main(from_date, to_date)
     else:
         logger.info("Skipping load")
 

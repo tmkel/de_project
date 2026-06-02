@@ -5,8 +5,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-from src.ingestion import api_client
-from src.storage import raw_loader, staging
+from src.ingestion import ingest_api
+from src.staging import staging
+from src.storage import psql_loader
 from run_pipeline import validate_raw_data
 
 
@@ -34,7 +35,7 @@ with DAG(
 
     def _ingest(**context):
         target_date = _get_target_date(**context)
-        api_client.main(target_date, target_date)
+        ingest_api.main(target_date, target_date)
 
     def _validate(**context):
         target_date = _get_target_date(**context)
@@ -46,7 +47,7 @@ with DAG(
 
     def _load(**context):
         target_date = _get_target_date(**context)
-        raw_loader.main(target_date, target_date)
+        psql_loader.main(target_date, target_date)
 
     ingest = PythonOperator(task_id="ingest", python_callable=_ingest)
     validate = PythonOperator(task_id="validate", python_callable=_validate)

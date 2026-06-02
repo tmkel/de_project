@@ -6,8 +6,9 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 
-from src.ingestion import api_client
-from src.storage import raw_loader, staging
+from src.ingestion import ingest_api
+from src.staging import staging
+from src.storage import psql_loader
 from run_pipeline import validate_raw_data
 
 logger = logging.getLogger(__name__)
@@ -37,13 +38,13 @@ with DAG(
         """Ingest, validate, stage, and load a single date window."""
         import pandas as pd
 
-        api_client.main(from_date, to_date)
+        ingest_api.main(from_date, to_date)
 
         for date in pd.date_range(from_date, to_date, freq="D"):
             validate_raw_data(date.strftime("%Y-%m-%d"))
 
         staging.main(from_date, to_date)
-        raw_loader.main(from_date, to_date)
+        psql_loader.main(from_date, to_date)
 
     def _run_backfill(**context):
         """Split the full range into 14-day windows and process each."""
