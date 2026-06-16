@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 import boto3
 
-BUCKET = os.environ.get("CARBON_S3_BUCKET", "carbon-intensity-lake-tl")
+BUCKET = os.environ.get("CARBON_S3_BUCKET", "carbon-intensity-lake")
 RAW_PREFIX = "raw"
 
 DATASETS = [
@@ -43,6 +43,12 @@ def upload_staging(dataset:str, local_dir:str|None = None) -> None:
 
 if __name__ == "__main__":
     import argparse
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s: %(message)s",
+    )
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--dataset", choices=DATASETS + ["all"], default="all")
     args = parser.parse_args()
