@@ -9,74 +9,16 @@ stage -> load workflow."""
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import subprocess
 from pathlib import Path
 
-import pandas as pd
-
+from src.ingestion import ingest_api
 from src.staging import staging
+from src.storage import psql_loader
+from src.validation import validate
 
 logger = logging.getLogger(__name__)
-
-from src.ingestion import ingest_api
-from src.validation.validate import (
-    validate_generation_mix_response,
-    validate_intensity_response,
-    validate_regional_response,
-)
-from src.storage import psql_loader
-
-RAW_DATASET_CONFIG = {
-    "national_intensity": {
-        "path": Path("./data/raw/national_intensity"),
-        "validator": validate_intensity_response,
-    },
-    "generation": {
-        "path": Path("./data/raw/generation"),
-        "validator": validate_generation_mix_response,
-    },
-    "regional_intensity": {
-        "path": Path("./data/raw/regional_intensity"),
-        "validator": validate_regional_response,
-    },
-}
-
-
-def _date_strings(from_date: str, to_date: str) -> list[str]:
-    """Return inclusive date strings for the requested range."""
-    return [date.strftime("%Y-%m-%d") for date in pd.date_range(from_date, to_date, freq="D")]
-
-
-def validate_raw_data(date: str) -> None:
-    """Validate saved raw JSON files and persist only records that pass validation."""
-    logger.info("Validating data for %s", date)
-
-    for dataset_name, config in RAW_DATASET_CONFIG.items():
-        file_path = config["path"] / f"{date}.json"
-        if not file_path.exists():
-            logger.warning("No raw %s data for %s, skipping validation", dataset_name, date)
-            continue
-
-        with file_path.open("r") as file_handle:
-            raw_records = json.load(file_handle)
-
-        validated_records = config["validator"](raw_records)
-        sanitized_records = [
-            record.model_dump(by_alias=True)
-            for record in validated_records
-        ]
-
-        with file_path.open("w") as file_handle:
-            json.dump(sanitized_records, file_handle, indent=4)
-
-        logger.info(
-            "%s: kept %d of %d records",
-            dataset_name,
-            len(sanitized_records),
-            len(raw_records),
-        )
 
 
 def run_pipeline(
@@ -94,8 +36,8 @@ def run_pipeline(
     else:
         logger.info("Skipping ingestion and using existing raw files")
 
-    for date in _date_strings(from_date, to_date):
-        validate_raw_data(date)
+    logger.info("Starting validation")
+    validate.main(from_date, to_date)
 
     logger.info("Starting staging")
     staging.main(from_date, to_date)

@@ -1,7 +1,6 @@
 from unittest.mock import MagicMock
 
 import pandas as pd
-import pytest
 
 from src.storage import psql_loader
 
@@ -94,7 +93,7 @@ class TestLoadRawNationalIntensity:
 
 class TestLoadRawGeneration:
     def test_builds_tuple_rows_and_calls_executemany(self, tmp_path, monkeypatch):
-        staging_dir = tmp_path / "data/staging/generation"
+        staging_dir = tmp_path / "data/staging/national_generation_mix"
         staging_dir.mkdir(parents=True)
         GENERATION_ROWS.to_parquet(staging_dir / "2022-01-01.parquet")
         monkeypatch.chdir(tmp_path)
@@ -112,7 +111,7 @@ class TestLoadRawGeneration:
 
 class TestLoadRawRegionalIntensity:
     def test_builds_tuple_rows_and_calls_executemany(self, tmp_path, monkeypatch):
-        staging_dir = tmp_path / "data/staging/regional_intensity"
+        staging_dir = tmp_path / "data/staging/regional_intensity_generation_mix"
         staging_dir.mkdir(parents=True)
         REGIONAL_ROWS.to_parquet(staging_dir / "2022-01-01.parquet")
         monkeypatch.chdir(tmp_path)
@@ -141,8 +140,8 @@ class TestLoadRawDate:
     def test_deletes_then_inserts_per_dataset_and_commits(self, tmp_path, monkeypatch):
         for dataset, df in (
             ("national_intensity", NATIONAL_INTENSITY_ROWS),
-            ("generation", GENERATION_ROWS),
-            ("regional_intensity", REGIONAL_ROWS),
+            ("national_generation_mix", GENERATION_ROWS),
+            ("regional_intensity_generation_mix", REGIONAL_ROWS),
         ):
             staging_dir = tmp_path / f"data/staging/{dataset}"
             staging_dir.mkdir(parents=True)

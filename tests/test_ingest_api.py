@@ -1,8 +1,11 @@
+"""Tests for ingestion/ingest_api.py."""
+
 import json
 from unittest.mock import MagicMock, patch
 
 import requests
 
+from src import config
 from src.ingestion import ingest_api
 
 
@@ -15,7 +18,7 @@ def _mock_response(json_data, status_code=200):
 
 
 class TestFetchData:
-    @patch("src.ingestion.api_client.requests.get")
+    @patch("src.ingestion.ingest_api.requests.get")
     def test_returns_data_from_response_payload(self, mock_get):
         mock_get.return_value = _mock_response(
             {"data": [{"from": "2022-01-01T00:00Z", "value": 1}]}
@@ -30,7 +33,7 @@ class TestFetchData:
             timeout=30,
         )
 
-    @patch("src.ingestion.api_client.requests.get")
+    @patch("src.ingestion.ingest_api.requests.get")
     def test_returns_empty_list_on_timeout(self, mock_get):
         mock_get.side_effect = requests.exceptions.Timeout
 
@@ -38,7 +41,7 @@ class TestFetchData:
 
         assert result == []
 
-    @patch("src.ingestion.api_client.requests.get")
+    @patch("src.ingestion.ingest_api.requests.get")
     def test_returns_empty_list_on_http_error(self, mock_get):
         mock_response = _mock_response({"data": []}, status_code=500)
         mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
@@ -50,7 +53,7 @@ class TestFetchData:
 
         assert result == []
 
-    @patch("src.ingestion.api_client.requests.get")
+    @patch("src.ingestion.ingest_api.requests.get")
     def test_returns_empty_list_on_unexpected_error(self, mock_get):
         mock_get.side_effect = Exception("boom")
 
@@ -60,8 +63,8 @@ class TestFetchData:
 
 
 class TestGetters:
-    @patch("src.ingestion.api_client.requests.get")
-    def test_get_carbon_intensity_national_returns_payload_data(self, mock_get):
+    @patch("src.ingestion.ingest_api.requests.get")
+    def test_get_national_intensity_returns_payload_data(self, mock_get):
         mock_get.return_value = _mock_response(
             {
                 "data": [
@@ -78,20 +81,20 @@ class TestGetters:
             }
         )
 
-        result = ingest_api.get_carbon_intensity_national("2022-01-01")
+        result = ingest_api.get_national_intensity("2022-01-01")
 
         assert len(result) == 1
         assert result[0]["intensity"]["forecast"] == 74
 
-    @patch("src.ingestion.api_client._fetch_data")
-    def test_get_generation_mix_national_uses_next_day_endpoint_and_filters(self, mock_fetch):
+    @patch("src.ingestion.ingest_api._fetch_data")
+    def test_get_national_generation_mix_uses_next_day_endpoint_and_filters(self, mock_fetch):
         mock_fetch.return_value = [
             {"from": "2022-01-01T00:00Z", "generationmix": [{"fuel": "wind"}]},
             {"from": "2022-01-01T23:30Z", "generationmix": [{"fuel": "gas"}]},
             {"from": "2022-01-02T00:00Z", "generationmix": [{"fuel": "solar"}]},
         ]
 
-        result = ingest_api.get_generation_mix_national("2022-01-01")
+        result = ingest_api.get_national_generation_mix("2022-01-01")
 
         assert len(result) == 2
         assert all(record["from"].startswith("2022-01-01") for record in result)
@@ -100,8 +103,8 @@ class TestGetters:
             context="2022-01-01",
         )
 
-    @patch("src.ingestion.api_client._fetch_data")
-    def test_get_intensity_gm_regional_uses_next_day_endpoint_and_filters(
+    @patch("src.ingestion.ingest_api._fetch_data")
+    def test_get_regional_intensity_generation_mix_uses_next_day_endpoint_and_filters(
         self, mock_fetch
     ):
         mock_fetch.return_value = [
@@ -109,7 +112,7 @@ class TestGetters:
             {"from": "2022-01-02T00:00Z", "regions": [{"regionid": 2}]},
         ]
 
-        result = ingest_api.get_intensity_gm_regional("2022-01-01")
+        result = ingest_api.get_regional_intensity_generation_mix("2022-01-01")
 
         assert result == [{"from": "2022-01-01T00:00Z", "regions": [{"regionid": 1}]}]
         mock_fetch.assert_called_once_with(
@@ -119,9 +122,9 @@ class TestGetters:
 
 
 class TestFetchDailyDatasets:
-    @patch("src.ingestion.api_client.get_intensity_gm_regional")
-    @patch("src.ingestion.api_client.get_generation_mix_national")
-    @patch("src.ingestion.api_client.get_carbon_intensity_national")
+    @patch("src.ingestion.ingest_api.get_regional_intensity_generation_mix")
+    @patch("src.ingestion.ingest_api.get_national_generation_mix")
+    @patch("src.ingestion.ingest_api.get_national_intensity")
     def test_combines_all_dataset_results(
         self, mock_intensity, mock_generation, mock_regional
     ):
@@ -132,55 +135,54 @@ class TestFetchDailyDatasets:
         result = ingest_api.fetch_daily_datasets("2022-01-01")
 
         assert result == {
-            "national_intensity": [{"kind": "intensity"}],
-            "generation": [{"kind": "generation"}],
-            "regional_intensity": [{"kind": "regional"}],
+            config.NATIONAL_INTENSITY: [{"kind": "intensity"}],
+            config.NATIONAL_GENERATION_MIX: [{"kind": "generation"}],
+            config.REGIONAL_INTENSITY_GENERATION_MIX: [{"kind": "regional"}],
         }
 
 
 class TestSaveDailyDatasets:
-    def test_writes_each_dataset_to_its_target_file(self, tmp_path):
-        output_dirs = {
-            "national_intensity": str(tmp_path / "national_intensity"),
-            "generation": str(tmp_path / "generation"),
-            "regional_intensity": str(tmp_path / "regional_intensity"),
-        }
+    def test_writes_each_dataset_to_its_raw_file(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
         datasets = {
-            "national_intensity": [{"value": 1}],
-            "generation": [{"value": 2}],
-            "regional_intensity": [{"value": 3}],
+            config.NATIONAL_INTENSITY: [{"value": 1}],
+            config.NATIONAL_GENERATION_MIX: [{"value": 2}],
+            config.REGIONAL_INTENSITY_GENERATION_MIX: [{"value": 3}],
         }
 
-        ingest_api.save_daily_datasets("2022-01-01", datasets, output_dirs=output_dirs)
+        ingest_api.save_daily_datasets("2022-01-01", datasets)
 
         assert json.loads(
-            (tmp_path / "national_intensity" / "2022-01-01.json").read_text()
+            config.raw_path(config.NATIONAL_INTENSITY, "2022-01-01").read_text()
         ) == [{"value": 1}]
         assert json.loads(
-            (tmp_path / "generation" / "2022-01-01.json").read_text()
+            config.raw_path(config.NATIONAL_GENERATION_MIX, "2022-01-01").read_text()
         ) == [{"value": 2}]
         assert json.loads(
-            (tmp_path / "regional_intensity" / "2022-01-01.json").read_text()
+            config.raw_path(
+                config.REGIONAL_INTENSITY_GENERATION_MIX, "2022-01-01"
+            ).read_text()
         ) == [{"value": 3}]
 
-    def test_writes_empty_list_for_missing_dataset_key(self, tmp_path):
-        output_dirs = {"national_intensity": str(tmp_path / "national_intensity")}
+    def test_writes_empty_list_for_missing_dataset_key(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
 
-        ingest_api.save_daily_datasets("2022-01-01", {}, output_dirs=output_dirs)
+        ingest_api.save_daily_datasets("2022-01-01", {})
 
-        assert json.loads(
-            (tmp_path / "national_intensity" / "2022-01-01.json").read_text()
-        ) == []
+        for dataset in config.DATASETS:
+            assert json.loads(
+                config.raw_path(dataset, "2022-01-01").read_text()
+            ) == []
 
 
 class TestMain:
-    @patch("src.ingestion.api_client.time.sleep")
-    @patch("src.ingestion.api_client.save_daily_datasets")
-    @patch("src.ingestion.api_client.fetch_daily_datasets")
+    @patch("src.ingestion.ingest_api.time.sleep")
+    @patch("src.ingestion.ingest_api.save_daily_datasets")
+    @patch("src.ingestion.ingest_api.fetch_daily_datasets")
     def test_main_fetches_and_saves_each_day(self, mock_fetch_daily, mock_save, mock_sleep):
         mock_fetch_daily.side_effect = [
-            {"national_intensity": [1], "generation": [2], "regional_intensity": [3]},
-            {"national_intensity": [4], "generation": [5], "regional_intensity": [6]},
+            {config.NATIONAL_INTENSITY: [1]},
+            {config.NATIONAL_INTENSITY: [4]},
         ]
 
         ingest_api.main("2022-01-01", "2022-01-02")
@@ -190,14 +192,8 @@ class TestMain:
         mock_fetch_daily.assert_any_call("2022-01-02")
 
         assert mock_save.call_count == 2
-        mock_save.assert_any_call(
-            "2022-01-01",
-            {"national_intensity": [1], "generation": [2], "regional_intensity": [3]},
-        )
-        mock_save.assert_any_call(
-            "2022-01-02",
-            {"national_intensity": [4], "generation": [5], "regional_intensity": [6]},
-        )
+        mock_save.assert_any_call("2022-01-01", {config.NATIONAL_INTENSITY: [1]})
+        mock_save.assert_any_call("2022-01-02", {config.NATIONAL_INTENSITY: [4]})
 
         assert mock_sleep.call_count == 2
         mock_sleep.assert_called_with(0.5)

@@ -1,7 +1,22 @@
 """
-Pipeline Step 4 Scenario 2, S3
+Pipeline Step: S3 raw (s3_loader.py)
+- Upload local staged parquet files to s3 raw, as cloud input for Glue PySpark jobs
 
-Upload localing staging parquer to s3 raw, as cloud input
+Ref: Overall data flow
+
+                     UK Carbon Intensity API
+                            |
+                     Ingestion (Python + requests)
+                            |
+                     Validation (Pydantic)
+                            |
+                     Staging (JSON → Parquet)
+                      /                    \
+        Postgres raw load            S3 raw  (s3_loader)
+              |                              |
+    dbt  (stg → core → marts)        Glue PySpark jobs
+              |                              |
+      Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
 """
 
 import os
@@ -9,14 +24,12 @@ import logging
 from pathlib import Path
 import boto3
 
+from src import config
+
 BUCKET = os.environ.get("CARBON_S3_BUCKET", "carbon-intensity-lake")
 RAW_PREFIX = "raw"
 
-DATASETS = [
-    "national_intensity",
-    "generation",
-    "regional_intensity",
-]
+DATASETS = config.DATASETS
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +37,7 @@ def upload_staging(dataset:str, local_dir:str|None = None) -> None:
     """
     Upload all staged parquet files under local_dir to s3://{BUCKET}/raw/{dataset}
     
-    local_dir: defined in src.staging.staging, default, data/staging/xxx
+    local_dir: defined in src/staging/staging.py, default to "./data/staging/{dataset}"
     dataset: national_intensity, generation or regional_intensity
     """
     if local_dir is None:

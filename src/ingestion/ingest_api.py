@@ -1,33 +1,46 @@
 """
-Pipeline Step 1: Ingestion
+Pipeline Step: Ingestion (Python + requests)
 Download data from the UK API
 
 Covers:
-- national-intensity
-- generation (both national and regional)
-- regional-intensity
+- /intensity/date/{date}: national_intensity
+- /generation/{from}/pt24h: national_generation_mix
+- /regional/intensity/{from}/pt24h: regional_intensity_generation_mix
+
+Ref: Overall data flow
+
+                     UK Carbon Intensity API
+                            |
+                     Ingestion (Python + requests)
+                            |
+                     Validation (Pydantic)
+                            |
+                     Staging (JSON → Parquet)
+                      /                    \
+        Postgres raw load            S3 raw  (s3_loader)
+              |                              |
+    dbt  (stg → core → marts)        Glue PySpark jobs
+              |                              |
+      Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
+
 """
 
 import argparse
 import json
 import logging
-import os
 import time
 from datetime import datetime, timedelta
 
 import pandas as pd
 import requests
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
 BASE_URL = "https://api.carbonintensity.org.uk"
 
 headers = {"Accept": "application/json"}
-RAW_DATA_DIRS = {
-    "national_intensity": "./data/raw/national_intensity",
-    "generation": "./data/raw/generation",
-    "regional_intensity": "./data/raw/regional_intensity",
-}
 
 
 def _fetch_data(endpoint: str, context: str) -> list:
@@ -46,7 +59,7 @@ def _fetch_data(endpoint: str, context: str) -> list:
     return []
 
 
-def get_carbon_intensity_national(date: str) -> list:
+def get_national_intensity(date: str) -> list:
     """
     Fetch national carbon intensity data for a single UTC day.
 
@@ -59,7 +72,7 @@ def get_carbon_intensity_national(date: str) -> list:
     )
 
 
-def get_generation_mix_national(date: str) -> list:
+def get_national_generation_mix(date: str) -> list:
     """
     Fetch national generation mix data for a single UTC day.
 
@@ -78,7 +91,7 @@ def get_generation_mix_national(date: str) -> list:
     return data
 
 
-def get_intensity_gm_regional(date: str) -> list:
+def get_regional_intensity_generation_mix(date: str) -> list:
     """
     Fetch regional intensity and generation mix data for a single UTC day.
 
@@ -101,30 +114,25 @@ def fetch_daily_datasets(date: str) -> dict[str, list]:
     """Fetch all raw datasets for a single day and return them by dataset name."""
     logger.info("Fetching data for %s", date)
     logger.info("National Intensity...")
-    intensity_data = get_carbon_intensity_national(date)
+    intensity_data = get_national_intensity(date)
     logger.info("National Generation Mix...")
-    generation_data = get_generation_mix_national(date)
-    logger.info("Regional Intensity and Mix...")
-    regional_data = get_intensity_gm_regional(date)
+    generation_data = get_national_generation_mix(date)
+    logger.info("Regional Intensity and Generation Mix...")
+    regional_data = get_regional_intensity_generation_mix(date)
 
     return {
-        "national_intensity": intensity_data,
-        "generation": generation_data,
-        "regional_intensity": regional_data,
+        config.NATIONAL_INTENSITY: intensity_data,
+        config.NATIONAL_GENERATION_MIX: generation_data,
+        config.REGIONAL_INTENSITY_GENERATION_MIX: regional_data,
     }
 
 
-def save_daily_datasets(
-    date: str,
-    datasets: dict[str, list],
-    output_dirs: dict[str, str] | None = None,
-) -> None:
-    """Save a day's datasets as JSON files using the configured output locations."""
-    target_dirs = output_dirs or RAW_DATA_DIRS
-
-    for dataset_name, output_dir in target_dirs.items():
-        os.makedirs(output_dir, exist_ok=True)
-        with open(f"{output_dir}/{date}.json", "w") as file_handle:
+def save_daily_datasets(date: str, datasets: dict[str, list]) -> None:
+    """Save a day's datasets as raw JSON files, one per dataset."""
+    for dataset_name in config.DATASETS:
+        output_path = config.raw_path(dataset_name, date)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w") as file_handle:
             json.dump(datasets.get(dataset_name, []), file_handle, indent=4)
 
 
@@ -140,6 +148,10 @@ def main(from_date: str, to_date: str) -> None:
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
     parser = argparse.ArgumentParser(description="Fetch UK Carbon Intensity datasets for a date range.")
     parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")

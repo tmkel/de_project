@@ -7,11 +7,13 @@ import pandas as pd
 import psycopg2
 from dotenv import load_dotenv
 
+from src import config
+
 logger = logging.getLogger(__name__)
 
 
 def staged_file_exists(dataset: str, date: str) -> bool:
-    return os.path.exists(f"./data/staging/{dataset}/{date}.parquet")
+    return config.staging_path(dataset, date).exists()
 
 
 def get_connection() -> psycopg2.extensions.connection | None:
@@ -34,7 +36,7 @@ def get_connection() -> psycopg2.extensions.connection | None:
         return None
 
 def load_raw_national_intensity(cursor: psycopg2.extensions.cursor, date: str) -> None:
-    national_intensity_df = pd.read_parquet(f"./data/staging/national_intensity/{date}.parquet")
+    national_intensity_df = pd.read_parquet(config.staging_path(config.NATIONAL_INTENSITY, date))
 
     rows = [
         (
@@ -61,7 +63,7 @@ def load_raw_generation(
     cursor: psycopg2.extensions.cursor,
     date: str,
 ) -> None:
-    generation_df = pd.read_parquet(f"./data/staging/generation/{date}.parquet")
+    generation_df = pd.read_parquet(config.staging_path(config.NATIONAL_GENERATION_MIX, date))
     rows = [
         (
             row['from'],
@@ -85,7 +87,7 @@ def load_raw_regional_intensity(
     cursor: psycopg2.extensions.cursor,
     date: str,
 ) -> None:
-    regional_intensity_fuel_df = pd.read_parquet(f"./data/staging/regional_intensity/{date}.parquet")
+    regional_intensity_fuel_df = pd.read_parquet(config.staging_path(config.REGIONAL_INTENSITY_GENERATION_MIX, date))
 
     rows = [
         (
@@ -121,7 +123,7 @@ def load_raw_date(date: str) -> None:
         "%Y-%m-%d"
     )
     try:
-        if staged_file_exists("national_intensity", date):
+        if staged_file_exists(config.NATIONAL_INTENSITY, date):
             cursor.execute(
                 "DELETE FROM raw_national_intensity WHERE from_date >= %s AND from_date < %s",
                 (f"{date}T00:00Z", f"{next_date}T00:00Z"),
@@ -130,7 +132,7 @@ def load_raw_date(date: str) -> None:
         else:
             logger.warning("No staged national intensity data for %s, skipping", date)
 
-        if staged_file_exists("generation", date):
+        if staged_file_exists(config.NATIONAL_GENERATION_MIX, date):
             cursor.execute(
                 "DELETE FROM raw_generation WHERE from_date >= %s AND from_date < %s",
                 (f"{date}T00:00Z", f"{next_date}T00:00Z"),
@@ -139,7 +141,7 @@ def load_raw_date(date: str) -> None:
         else:
             logger.warning("No staged generation data for %s, skipping", date)
 
-        if staged_file_exists("regional_intensity", date):
+        if staged_file_exists(config.REGIONAL_INTENSITY_GENERATION_MIX, date):
             cursor.execute(
                 "DELETE FROM raw_regional WHERE from_date >= %s AND from_date < %s",
                 (f"{date}T00:00Z", f"{next_date}T00:00Z"),
