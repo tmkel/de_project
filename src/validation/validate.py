@@ -1,6 +1,6 @@
 """
 Pipeline Step: Validation (Pydantic)
-Pydantic models for validating UK Carbon Intensity API responses. In pipeline, store the sanitized data in validated/ for downstream processing.
+Validate raw JSON files from the UK Carbon Intensity API via Pydantic and write passing records to the validated zone.
 
 Ref: Overall data flow
 
@@ -23,20 +23,29 @@ Ref: Overall data flow
 import argparse
 import json
 import logging
-from typing import Optional
 
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from src import config
 
 logger = logging.getLogger(__name__)
 
 
-# --- National Intensity endpoint ---
-class IntensityData(BaseModel):
+class StrictModel(BaseModel):
+    """Base for all API models. Unknown fields are kept (the record still passes) but
+    surfaced as a warning by ``validate_date``, so any new key the upstream API starts
+    sending is noticed without dropping data. ``extra="allow"`` stores the unknown
+    fields in ``model_extra`` and includes them in ``model_dump``."""
+
+    model_config = ConfigDict(extra="allow")
+
+
+# --- Intensity (shared between national and regional) ---
+class IntensityBase(StrictModel):
+    """Fields common to every intensity reading: a forecast and an index band."""
+
     forecast: int
-    actual: Optional[int] = None
     index: str
 
     @field_validator("index")
@@ -48,16 +57,29 @@ class IntensityData(BaseModel):
         return value
 
 
-class IntensityRecord(BaseModel):
+# --- National Intensity endpoint ---
+class NationalIntensityData(IntensityBase):
+    """National intensity also carries the settled measured value.
+
+    ``actual`` is required: the national endpoint always reports the measured
+    value for settled (past) half-hours. If same-day/unsettled data is ever
+    ingested, the API returns ``actual: null`` and those records will be dropped
+    — relax this to ``Optional[int]`` if that becomes a supported case.
+    """
+
+    actual: int
+
+
+class IntensityRecord(StrictModel):
     """Validate National Intensity API record."""
 
     from_: str = Field(alias="from")
     to: str
-    intensity: IntensityData
+    intensity: NationalIntensityData
 
 
 # --- National Generation Mix endpoint ---
-class GenerationMixData(BaseModel):
+class GenerationMixData(StrictModel):
     fuel: str
     perc: float
 
@@ -69,7 +91,7 @@ class GenerationMixData(BaseModel):
         return value
 
 
-class GenerationMixRecord(BaseModel):
+class GenerationMixRecord(StrictModel):
     """Validate National Generation Mix API record."""
 
     from_: str = Field(alias="from")
@@ -78,15 +100,19 @@ class GenerationMixRecord(BaseModel):
 
 
 # --- Regional Intensity endpoint ---
-class RegionalData(BaseModel):
+class RegionalIntensityData(IntensityBase):
+    """Regional intensity is forecast-only; the endpoint never reports ``actual``."""
+
+
+class RegionalData(StrictModel):
     regionid: int
     dnoregion: str
     shortname: str
-    intensity: IntensityData
+    intensity: RegionalIntensityData
     generationmix: list[GenerationMixData]
 
 
-class RegionalIntensityRecord(BaseModel):
+class RegionalIntensityRecord(StrictModel):
     """Validate Regional Intensity and Generation Mix API record."""
 
     from_: str = Field(alias="from")
@@ -95,7 +121,7 @@ class RegionalIntensityRecord(BaseModel):
 
 
 # --- Validation Helper Functions ---
-def validate_intensity_response(data: list) -> list[IntensityRecord]:
+def validate_national_intensity_response(data: list) -> list[IntensityRecord]:
     """Validate a list of intensity records."""
     valid = []
     for i, record in enumerate(data):
@@ -106,7 +132,7 @@ def validate_intensity_response(data: list) -> list[IntensityRecord]:
     return valid
 
 
-def validate_generation_mix_response(data: list) -> list[GenerationMixRecord]:
+def validate_national_generation_mix_response(data: list) -> list[GenerationMixRecord]:
     """Validate a list of generation mix records."""
     valid = []
     for i, record in enumerate(data):
@@ -117,7 +143,7 @@ def validate_generation_mix_response(data: list) -> list[GenerationMixRecord]:
     return valid
 
 
-def validate_regional_response(data: list) -> list[RegionalIntensityRecord]:
+def validate_regional_intensity_generation_mix_response(data: list) -> list[RegionalIntensityRecord]:
     """Validate a list of regional intensity records."""
     valid = []
     for i, record in enumerate(data):
@@ -131,10 +157,31 @@ def validate_regional_response(data: list) -> list[RegionalIntensityRecord]:
 # --- Validation Pipeline Step (raw → validated) ---
 # Validator to apply to each raw dataset.
 DATASET_VALIDATORS = {
-    config.NATIONAL_INTENSITY: validate_intensity_response,
-    config.NATIONAL_GENERATION_MIX: validate_generation_mix_response,
-    config.REGIONAL_INTENSITY_GENERATION_MIX: validate_regional_response,
+    config.NATIONAL_INTENSITY: validate_national_intensity_response,
+    config.NATIONAL_GENERATION_MIX: validate_national_generation_mix_response,
+    config.REGIONAL_INTENSITY_GENERATION_MIX: validate_regional_intensity_generation_mix_response,
 }
+
+# A full UTC day is 48 half-hourly intervals; the API timestamps are UTC ("...Z"),
+# so this count is constant (no DST shift). Fewer records means an incomplete day.
+EXPECTED_DAILY_RECORDS = 48
+
+
+def _collect_new_fields(model: BaseModel, found: set[str]) -> None:
+    """Recursively gather ``ClassName.field`` for any field not in the schema.
+
+    Extras are populated in ``model_extra`` because the API models allow (but flag)
+    unknown fields; nested models are walked so a new key at any depth is reported.
+    """
+    if model.model_extra:
+        found.update(f"{type(model).__name__}.{key}" for key in model.model_extra)
+    for value in model.__dict__.values():
+        if isinstance(value, BaseModel):
+            _collect_new_fields(value, found)
+        elif isinstance(value, list):
+            for item in value:
+                if isinstance(item, BaseModel):
+                    _collect_new_fields(item, found)
 
 
 def validate_date(date: str) -> None:
@@ -165,12 +212,40 @@ def validate_date(date: str) -> None:
         with validated_file.open("w") as file_handle:
             json.dump(sanitized_records, file_handle, indent=4)
 
-        logger.info(
-            "%s: kept %d of %d records",
-            dataset_name,
-            len(sanitized_records),
-            len(raw_records),
-        )
+        kept = len(sanitized_records)
+        logger.info("%s: kept %d of %d records", dataset_name, kept, len(raw_records))
+
+        # Flag (but don't drop) any field the upstream API added that isn't in the
+        # schema, aggregated across the day so a new key logs once, not per record.
+        new_fields: set[str] = set()
+        for record in validated_records:
+            _collect_new_fields(record, new_fields)
+        if new_fields:
+            logger.warning(
+                "%s %s: upstream API returned field(s) not in schema: %s",
+                dataset_name,
+                date,
+                ", ".join(sorted(new_fields)),
+            )
+
+        # Flag data-quality issues: records that failed the schema, and days that
+        # are not the expected 48 half-hourly records.
+        dropped = len(raw_records) - kept
+        if dropped:
+            logger.warning(
+                "%s %s: %d record(s) failed validation and were dropped",
+                dataset_name,
+                date,
+                dropped,
+            )
+        if kept != EXPECTED_DAILY_RECORDS:
+            logger.warning(
+                "%s %s: incomplete day, expected %d records but kept %d",
+                dataset_name,
+                date,
+                EXPECTED_DAILY_RECORDS,
+                kept,
+            )
 
 
 def main(from_date: str, to_date: str) -> None:

@@ -12,9 +12,9 @@ from src.validation.validate import (
     GenerationMixRecord,
     IntensityRecord,
     RegionalIntensityRecord,
-    validate_generation_mix_response,
-    validate_intensity_response,
-    validate_regional_response,
+    validate_national_generation_mix_response,
+    validate_national_intensity_response,
+    validate_regional_intensity_generation_mix_response,
 )
 
 
@@ -63,16 +63,24 @@ class TestIntensityRecord:
         assert record.intensity.actual == 193
         assert record.intensity.index == "moderate"
 
-    def test_null_actual(self):
-        data = {
+    def test_actual_required(self):
+        # National intensity must carry the settled measured value; a null or
+        # missing `actual` is rejected so unsettled records don't slip through.
+        null_actual = {
             "from": "2022-01-01T00:00Z",
             "to": "2022-01-01T00:30Z",
             "intensity": {"forecast": 195, "actual": None, "index": "moderate"},
         }
+        missing_actual = {
+            "from": "2022-01-01T00:00Z",
+            "to": "2022-01-01T00:30Z",
+            "intensity": {"forecast": 195, "index": "moderate"},
+        }
 
-        record = IntensityRecord.model_validate(data)
-
-        assert record.intensity.actual is None
+        with pytest.raises(ValidationError):
+            IntensityRecord.model_validate(null_actual)
+        with pytest.raises(ValidationError):
+            IntensityRecord.model_validate(missing_actual)
 
     def test_invalid_index(self):
         data = {
@@ -89,6 +97,22 @@ class TestIntensityRecord:
 
         with pytest.raises(ValidationError):
             IntensityRecord.model_validate(data)
+
+    def test_unknown_field_allowed_and_kept(self):
+        # An unexpected field (e.g. the upstream API adds one) is allowed through and
+        # preserved on the model, rather than dropping the record — at both levels.
+        extra_at_record = {**VALID_INTENSITY_RECORD, "surprise": 1}
+        extra_in_intensity = {
+            "from": "2022-01-01T00:00Z",
+            "to": "2022-01-01T00:30Z",
+            "intensity": {"forecast": 195, "actual": 193, "index": "moderate", "new": 9},
+        }
+
+        rec = IntensityRecord.model_validate(extra_at_record)
+        assert rec.model_extra == {"surprise": 1}
+
+        rec2 = IntensityRecord.model_validate(extra_in_intensity)
+        assert rec2.intensity.model_extra == {"new": 9}
 
 
 class TestGenerationMixRecord:
@@ -133,7 +157,7 @@ class TestRegionalIntensityRecord:
 
 class TestValidationHelpers:
     def test_validate_intensity_good_data(self):
-        results = validate_intensity_response([VALID_INTENSITY_RECORD])
+        results = validate_national_intensity_response([VALID_INTENSITY_RECORD])
 
         assert len(results) == 1
         assert results[0].intensity.forecast == 195
@@ -141,17 +165,17 @@ class TestValidationHelpers:
     def test_validate_intensity_mixed_data(self):
         bad_record = {"from": "2022-01-01T00:00Z", "to": "2022-01-01T00:30Z"}
 
-        results = validate_intensity_response([VALID_INTENSITY_RECORD, bad_record])
+        results = validate_national_intensity_response([VALID_INTENSITY_RECORD, bad_record])
 
         assert len(results) == 1
 
     def test_validate_intensity_empty(self):
-        results = validate_intensity_response([])
+        results = validate_national_intensity_response([])
 
         assert results == []
 
     def test_validate_generation_good_data(self):
-        results = validate_generation_mix_response([VALID_GENERATION_RECORD])
+        results = validate_national_generation_mix_response([VALID_GENERATION_RECORD])
 
         assert len(results) == 1
         assert results[0].generationmix[1].fuel == "wind"
@@ -163,14 +187,14 @@ class TestValidationHelpers:
             "generationmix": [{"fuel": "wind", "perc": 150.0}],
         }
 
-        results = validate_generation_mix_response(
+        results = validate_national_generation_mix_response(
             [VALID_GENERATION_RECORD, bad_record]
         )
 
         assert len(results) == 1
 
     def test_validate_regional_good_data(self):
-        results = validate_regional_response([VALID_REGIONAL_RECORD])
+        results = validate_regional_intensity_generation_mix_response([VALID_REGIONAL_RECORD])
 
         assert len(results) == 1
         assert results[0].regions[0].regionid == 1
@@ -202,6 +226,54 @@ class TestValidateDate:
 
         # Raw zone is left untouched.
         assert json.loads(raw_file.read_text()) == raw_records
+
+    def test_flags_new_upstream_field_but_keeps_record(self, tmp_path, monkeypatch, caplog):
+        monkeypatch.chdir(tmp_path)
+        raw_records = [
+            {
+                "from": "2022-01-01T00:00Z",
+                "to": "2022-01-01T00:30Z",
+                "intensity": {"forecast": 195, "actual": 193, "index": "moderate", "confidence": 9},
+            }
+        ]
+        raw_file = config.raw_path(config.NATIONAL_INTENSITY, "2022-01-01")
+        raw_file.parent.mkdir(parents=True)
+        raw_file.write_text(json.dumps(raw_records))
+
+        with caplog.at_level("WARNING", logger="src.validation.validate"):
+            validate.validate_date("2022-01-01")
+
+        # Flagged, naming the model.field, and only once for the day.
+        assert "NationalIntensityData.confidence" in caplog.text
+        assert caplog.text.count("not in schema") == 1
+
+        # Record is kept (not dropped) and the new field is preserved downstream.
+        saved = json.loads(
+            config.validated_path(config.NATIONAL_INTENSITY, "2022-01-01").read_text()
+        )
+        assert len(saved) == 1
+        assert saved[0]["intensity"]["confidence"] == 9
+
+    def test_warns_on_dropped_and_incomplete_day(self, tmp_path, monkeypatch, caplog):
+        monkeypatch.chdir(tmp_path)
+        raw_records = [
+            VALID_INTENSITY_RECORD,
+            {
+                "from": "2022-01-01T00:30Z",
+                "to": "2022-01-01T01:00Z",
+                "intensity": {"forecast": 120, "actual": 110, "index": "extreme"},
+            },
+        ]
+        raw_file = config.raw_path(config.NATIONAL_INTENSITY, "2022-01-01")
+        raw_file.parent.mkdir(parents=True)
+        raw_file.write_text(json.dumps(raw_records))
+
+        with caplog.at_level("WARNING", logger="src.validation.validate"):
+            validate.validate_date("2022-01-01")
+
+        messages = caplog.text
+        assert "1 record(s) failed validation and were dropped" in messages
+        assert "incomplete day, expected 48 records but kept 1" in messages
 
     def test_skips_dataset_with_no_raw_file(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
