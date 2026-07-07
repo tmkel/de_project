@@ -1,10 +1,24 @@
 """
 Pipeline Entry Point
-src.ingest
-    ingest_api.py, 
-src.validate
-    validate.py
-stage -> load workflow."""
+Pydantic models for validating UK Carbon Intensity API responses. In pipeline, store the sanitized data in validated/ for downstream processing.
+
+Ref: Overall data flow
+
+                     UK Carbon Intensity API
+                            |
+                     Ingestion (Python + requests)
+                            |
+                     Validation (Pydantic)
+                            |
+                     Staging (JSON → Parquet)
+                      /                    \
+        Postgres raw load            S3 raw  (s3_loader)
+              |                              |
+    dbt  (stg → core → marts)        Glue PySpark jobs
+              |                              |
+      Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
+
+"""
 
 from __future__ import annotations
 
@@ -50,7 +64,7 @@ def run_pipeline(
 
     if not skip_load and not skip_transform:
         logger.info("Starting dbt transform")
-        dbt_dir = Path(__file__).parent / "uk_carbon"
+        dbt_dir = Path(__file__).parent / "dbt_uk_carbon"
 
         result = subprocess.run(
             ["dbt", "build"],

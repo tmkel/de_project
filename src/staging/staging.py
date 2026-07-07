@@ -83,7 +83,7 @@ def stage_regional_intensity_generation_mix(date: str) -> None:
                     "intensity.forecast": regions["intensity"]["forecast"],
                     "intensity.index": regions["intensity"]["index"],
                     "fuel": fuel["fuel"],
-                    "percentage": fuel["perc"],
+                    "perc": fuel["perc"],
                 }
                 rows.append(row)
     data_df = pd.DataFrame(rows)

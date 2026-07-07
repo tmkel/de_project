@@ -52,7 +52,7 @@ REGIONAL_ROWS = pd.DataFrame(
             "intensity.forecast": 42,
             "intensity.index": "very low",
             "fuel": "wind",
-            "percentage": 80.0,
+            "perc": 80.0,
         }
     ]
 )
@@ -81,7 +81,7 @@ class TestLoadRawNationalIntensity:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        psql_loader.load_raw_national_intensity(cursor, "2022-01-01")
+        psql_loader.load_national_intensity(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -99,7 +99,7 @@ class TestLoadRawGeneration:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        psql_loader.load_raw_generation(cursor, "2022-01-01")
+        psql_loader.load_national_generation_mix(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -117,7 +117,7 @@ class TestLoadRawRegionalIntensity:
         monkeypatch.chdir(tmp_path)
 
         cursor = MagicMock()
-        psql_loader.load_raw_regional_intensity(cursor, "2022-01-01")
+        psql_loader.load_regional_intensity_generation_mix(cursor, "2022-01-01")
 
         cursor.executemany.assert_called_once()
         _, rows = cursor.executemany.call_args.args
@@ -153,7 +153,7 @@ class TestLoadRawDate:
         connection.cursor.return_value = cursor
         monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        psql_loader.load_raw_date("2022-01-01")
+        psql_loader.load_date("2022-01-01")
 
         delete_statements = [
             call.args[0]
@@ -179,7 +179,7 @@ class TestLoadRawDate:
         connection.cursor.return_value = cursor
         monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        psql_loader.load_raw_date("2022-01-01")
+        psql_loader.load_date("2022-01-01")
 
         connection.rollback.assert_called_once()
         connection.commit.assert_not_called()
@@ -194,7 +194,7 @@ class TestLoadRawDate:
         connection.cursor.return_value = cursor
         monkeypatch.setattr(psql_loader, "get_connection", lambda: connection)
 
-        psql_loader.load_raw_date("2022-01-01")
+        psql_loader.load_date("2022-01-01")
 
         cursor.execute.assert_not_called()
         cursor.executemany.assert_not_called()
@@ -203,4 +203,4 @@ class TestLoadRawDate:
     def test_returns_early_when_connection_fails(self, monkeypatch):
         monkeypatch.setattr(psql_loader, "get_connection", lambda: None)
 
-        psql_loader.load_raw_date("2022-01-01")
+        psql_loader.load_date("2022-01-01")

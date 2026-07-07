@@ -153,7 +153,7 @@ class TestStageRegionalIntensity:
         )
         assert len(result) == 2
         assert set(result["fuel"]) == {"wind", "hydro"}
-        assert set(result["percentage"]) == {80.0, 15.0}
+        assert set(result["perc"]) == {80.0, 15.0}
         assert set(result["regionid"]) == {1}
         assert set(result["shortname"]) == {"North Scotland"}
         assert set(result["intensity.forecast"]) == {42}
