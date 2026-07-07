@@ -12,8 +12,9 @@ The data covers two dimensions of the UK grid: carbon intensity (forecast vs. ac
 
 ## Architecture
 
-Two transformation paths share the same validated staging layer. **Apache Airflow** is used for local postgres/dbt path orchestration.
-the cloud S3/Glue path.
+Two transformation paths share the same validated staging layer. **Apache Airflow**
+orchestrates the local Postgres/dbt path; the cloud S3/Glue path is run manually for
+now (GitHub Actions orchestration is on the [roadmap](#roadmap)).
 
 ```
                      UK Carbon Intensity API
@@ -91,7 +92,7 @@ The `transform` DAG is scheduled on a **Dataset** that `ingest_and_load` (and `b
 | Package mgmt | uv | Fast Python dependency management |
 | Cloud ETL | PySpark on AWS Glue | Re-implements the dbt marts on managed Spark; proves the same logic runs distributed |
 | Object storage | Amazon S3 | Raw + curated zones for the lakehouse |
-| Orchestration (cloud) | GitHub Actions | Runs the AWS layer; no idle cost (vs. a managed Airflow cluster) |
+| Orchestration (cloud) | GitHub Actions | *Planned* — run the AWS layer; no idle cost (vs. a managed Airflow cluster) |
 | Table format | Apache Iceberg | *Planned* — convert curated output to Iceberg in the Glue Data Catalog |
 | Serving (cloud) | Amazon Athena + dbt-athena | *Planned* — serverless SQL over Iceberg as a second dbt target |
 | IaC | Terraform | *Planned* — codify the S3/Glue/Athena resources |
@@ -188,7 +189,7 @@ de_project/
 
 │   ├── ingest_and_load.py       #   Daily ingestion pipeline
 
-│   ├── transform.py             #   dbt build with freshness check
+│   ├── transform.py             #   dbt build, Dataset-triggered on data load
 
 │   └── backfill.py              #   Historical data loader
 
@@ -259,7 +260,7 @@ de_project/
 
 **Why keep dbt as production and add Glue in parallel?** The data volume doesn't justify a Spark cluster, so dbt stays production. Glue re-implements the marts to demonstrate the cloud/Spark skill set and to prove — via the verify step — that both paths agree. Ripping out dbt would tell a weaker story than maintaining a verified twin.
 
-**Why GitHub Actions for the AWS layer, not managed Airflow?** Managed Airflow (MWAA) has no scale-to-zero and costs hundreds per month. GitHub Actions runs the cloud jobs at effectively zero idle cost and keeps the whole layer inside the free/near-free tier.
+**Why GitHub Actions for the AWS layer (planned), not managed Airflow?** Managed Airflow (MWAA) has no scale-to-zero and costs hundreds per month. GitHub Actions runs the cloud jobs at effectively zero idle cost and keeps the whole layer inside the free/near-free tier.
 
 **Why batch, not streaming?** The source API updates every 30 minutes. Streaming infrastructure (Kafka, Flink) would add complexity with no architectural benefit at this update frequency.
 
@@ -267,6 +268,7 @@ de_project/
 
 ## Roadmap
 
+- **GitHub Actions**: CI (pytest + `dbt build` on push) and scheduled orchestration of the cloud S3/Glue path.
 - **Per-region parity** for the Glue daily-intensity job (match `mart_daily_intensity_by_region` 1:1), plus PySpark twins of the generation-mix and forecast-accuracy marts.
 - **Iceberg** (Session 6): convert curated Glue output to Iceberg tables in the Glue Data Catalog.
 - **Athena + dbt-athena** (Session 7): serverless SQL over Iceberg as a second dbt target.
