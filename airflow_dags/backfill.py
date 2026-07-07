@@ -9,7 +9,9 @@ from airflow.operators.python import PythonOperator
 from src.ingestion import ingest_api
 from src.staging import staging
 from src.storage import psql_loader
-from run_pipeline import validate_raw_data
+from src.validation import validate
+
+from carbon_datasets import RAW_CARBON_LOADED
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +38,9 @@ with DAG(
 
     def _backfill_window(from_date: str, to_date: str):
         """Ingest, validate, stage, and load a single date window."""
-        import pandas as pd
 
         ingest_api.main(from_date, to_date)
-
-        for date in pd.date_range(from_date, to_date, freq="D"):
-            validate_raw_data(date.strftime("%Y-%m-%d"))
-
+        validate.main(from_date, to_date)
         staging.main(from_date, to_date)
         psql_loader.main(from_date, to_date)
 
@@ -68,4 +66,5 @@ with DAG(
     backfill = PythonOperator(
         task_id="backfill",
         python_callable=_run_backfill,
+        outlets=[RAW_CARBON_LOADED],  # a completed backfill also triggers `transform`
     )

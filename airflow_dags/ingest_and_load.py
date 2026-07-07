@@ -8,8 +8,9 @@ from airflow.operators.python import PythonOperator
 from src.ingestion import ingest_api
 from src.staging import staging
 from src.storage import psql_loader
-from run_pipeline import validate_raw_data
+from src.validation import validate
 
+from carbon_datasets import RAW_CARBON_LOADED
 
 default_args = {
     "owner": "teliang",
@@ -39,7 +40,7 @@ with DAG(
 
     def _validate(**context):
         target_date = _get_target_date(**context)
-        validate_raw_data(target_date)
+        validate.main(target_date, target_date)
 
     def _stage(**context):
         target_date = _get_target_date(**context)
@@ -50,8 +51,12 @@ with DAG(
         psql_loader.main(target_date, target_date)
 
     ingest = PythonOperator(task_id="ingest", python_callable=_ingest)
-    validate = PythonOperator(task_id="validate", python_callable=_validate)
+    validate_task = PythonOperator(task_id="validate", python_callable=_validate)
     stage = PythonOperator(task_id="stage", python_callable=_stage)
-    load = PythonOperator(task_id="load_raw", python_callable=_load)
+    load = PythonOperator(
+        task_id="load_raw",
+        python_callable=_load,
+        outlets=[RAW_CARBON_LOADED],  # marks the dataset updated → triggers `transform`
+    )
 
-    ingest >> validate >> stage >> load
+    ingest >> validate_task >> stage >> load
