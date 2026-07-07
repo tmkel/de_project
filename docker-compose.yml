@@ -16,12 +16,12 @@ x-airflow-common: &airflow-common
     POSTGRES_USER: ${POSTGRES_USER:-uk_carbon_user}
     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uk_carbon_password}
   volumes:
-    - ./dags:/opt/airflow/dags
+    - ./airflow_dags:/opt/airflow/dags
+    - ./data:/opt/airflow/data
     - ./logs:/opt/airflow/logs
     - ./src:/opt/airflow/src
-    - ./uk_carbon:/opt/airflow/uk_carbon
-    - ./run_pipeline.py:/opt/airflow/run_pipeline.py
-    - ./uk_carbon/profiles.yml:/home/airflow/.dbt/profiles.yml
+    - ./dbt_uk_carbon:/opt/airflow/uk_carbon
+    - ./dbt_uk_carbon/profiles.yml:/home/airflow/.dbt/profiles.yml
   depends_on:
     postgres:
       condition: service_healthy
@@ -53,14 +53,16 @@ services:
     command:
       - -c
       - |
+        mkdir -p /opt/airflow/logs /opt/airflow/data &&
         airflow db migrate &&
-        airflow users create \
+        { airflow users create \
           --username admin \
           --password admin \
           --firstname Admin \
           --lastname User \
           --role Admin \
-          --email admin@example.com || true
+          --email admin@example.com || true; } &&
+        chown -R "${AIRFLOW_UID:-50000}:0" /opt/airflow/logs /opt/airflow/data
     restart: "no"
 
   airflow-webserver:

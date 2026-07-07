@@ -1,11 +1,30 @@
+# VCS / envs
 .git
 .venv
+.env
+
+# Python caches / artifacts
 __pycache__
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+
+# Data & runtime (large / regenerated)
 data/
 logs/
-dags/
-*.pyc
-.env
-uk_carbon/target/
-uk_carbon/dbt_packages/
-uk_carbon/logs/
+airflow_dags/
+
+# dbt build artifacts
+dbt_uk_carbon/target/
+dbt_uk_carbon/dbt_packages/
+dbt_uk_carbon/logs/
+
+# Not needed in the Airflow image
+tests/
+aws_cloud/
+jupyter_notebooks/
+
+# OS
+.DS_Store

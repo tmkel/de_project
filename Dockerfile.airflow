@@ -1,8 +1,5 @@
 FROM apache/airflow:2.10.3-python3.12
 
-# Airflow's image already ships an older uv at ~/.local/bin/uv that shadows
-# anything we add to /usr/local/bin via PATH order. Call uv by absolute path
-# to make sure the version we COPY in is the one that runs.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 COPY --chown=airflow:0 pyproject.toml uv.lock /tmp/
