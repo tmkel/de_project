@@ -12,7 +12,9 @@ The data covers two dimensions of the UK grid: carbon intensity (forecast vs. ac
 
 ## Architecture
 
-Two transformation paths share the same validated staging layer.
+Two transformation paths share the same validated staging layer. Orchestration is split
+by target: **Apache Airflow** drives the local Postgres/dbt path; **GitHub Actions** drives
+the cloud S3/Glue path.
 
 ```
                      UK Carbon Intensity API
@@ -28,6 +30,11 @@ Two transformation paths share the same validated staging layer.
     dbt  (stg → core → marts)        Glue PySpark jobs
               |                              |
       Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
+
+  ──────────────────────────────────────────────────────────────────────────
+  Orchestration:
+    local path  →  Apache Airflow   (ingest_and_load DAG  ▸  transform DAG)
+    cloud path  →  GitHub Actions   (s3_loader  ▸  Glue PySpark jobs)
 ```
 
 ## Two implementations, verified equivalent
@@ -68,10 +75,10 @@ Each mart has (or is queued to have) a PySpark twin under `aws_cloud/glue/`, nam
 | DAG | Schedule | Purpose |
 |---|---|---|
 | `ingest_and_load` | Daily at 02:00 UTC | Fetch yesterday's data, validate, stage, load to PostgreSQL |
-| `transform` | Daily at 03:00 UTC | Run `dbt build` (models + tests) after a data freshness check |
+| `transform` | Triggered on data load (Dataset) | Run `dbt build` (models + tests) after each successful load |
 | `backfill` | Manual trigger | Load historical data in configurable date ranges |
 
-The transform DAG checks data freshness before running dbt, rather than using ExternalTaskSensor. This is more robust because it decouples the DAGs from Airflow's scheduling metadata.
+The `transform` DAG is scheduled on a **Dataset** that `ingest_and_load` (and `backfill`) mark updated when their load task succeeds — so it runs exactly when fresh data lands, with no cron guesswork and no `ExternalTaskSensor` execution-date coupling. This is Airflow's data-aware scheduling: the producer declares an `outlets=[...]` dataset, the consumer sets `schedule=[...]` on it.
 
 ## Tech Stack
 
@@ -107,7 +114,7 @@ cd de_project
 
 # Create .env from template, then append your host UID
 cp .env.example .env
-mkdir -p logs
+mkdir -p logs data
 echo "AIRFLOW_UID=$(id -u)" >> .env
 
 # Start all services (PostgreSQL + Airflow)
@@ -124,18 +131,39 @@ docker compose --profile docs up dbt-docs   # dbt docs at http://localhost:8081
 
 ### Run locally (without Airflow)
 
+Here the **pipeline code runs on your host** (via `uv`) while **Postgres still runs in
+its container**, reached through the published port at `localhost:5432`. No host config
+is needed: `POSTGRES_HOST` is left unset in `.env`, so the code defaults the DB host to
+`localhost` (while inside Docker, Compose defaults it to the `postgres` service name).
+
 ```bash
 uv sync
-docker compose up postgres -d
 cp .env.example .env
+docker compose up postgres -d
 
 # Run the pipeline for a date range
 uv run python run_pipeline.py --from-date 2024-01-01 --to-date 2024-01-07
 
 # Run dbt (models + tests)
 cd dbt_uk_carbon
-dbt build --profiles-dir .
+uv run dbt build --profiles-dir .
 ```
+
+Each pipeline step can also be run on its own:
+
+```bash
+uv run python -m src.ingestion.ingest_api  --from-date 2024-01-01 --to-date 2024-01-07
+uv run python -m src.validation.validate   --from-date 2024-01-01 --to-date 2024-01-07
+uv run python -m src.staging.staging       --from-date 2024-01-01 --to-date 2024-01-07
+uv run python -m src.storage.psql_loader   --from-date 2024-01-01 --to-date 2024-01-07
+```
+
+**Docker vs local, at a glance:** in the Docker setup the pipeline code runs *inside*
+the Airflow container and reaches Postgres at host `postgres` (the Compose service name,
+injected as `POSTGRES_HOST`); locally the code runs on your machine and reaches the same
+container at `localhost` (the code's default when `POSTGRES_HOST` is unset). The database
+is containerised either way — only *where the code runs* and *which host it dials* changes.
+Set `DB_HOST` only to override the host for a local run (e.g. a remote database).
 
 ### Run the AWS lakehouse layer
 
