@@ -1,9 +1,9 @@
 with fuels as (
     select distinct fuel_type
     from (
-        select fuel_type from {{ ref('stg_generation') }}
+        select fuel_type from {{ ref('stg_national_generation_mix') }}
         union
-        select fuel_type from {{ ref('stg_regional') }}
+        select fuel_type from {{ ref('stg_regional_intensity_generation_mix') }}
     ) all_fuels
 ),
 

@@ -1,23 +1,23 @@
 with national as (
     select
-        period_from,
-        period_to,
+        period_start,
+        period_end,
         period_date,
         0 as region_id,
         fuel_type,
-        fuel_percentage
-    from {{ ref('stg_generation') }}
+        fuel_perc
+    from {{ ref('stg_national_generation_mix') }}
 ),
 
 regional as (
     select
-        period_from,
-        period_to,
+        period_start,
+        period_end,
         period_date,
         region_id,
         fuel_type,
-        fuel_percentage
-    from {{ ref('stg_regional') }}
+        fuel_perc
+    from {{ ref('stg_regional_intensity_generation_mix') }}
 ),
 
 combined as (
@@ -27,16 +27,16 @@ combined as (
 )
 
 select
-    {{ dbt_utils.generate_surrogate_key(['combined.period_from', 'combined.region_id', 'combined.fuel_type']) }} as generation_key,
+    {{ dbt_utils.generate_surrogate_key(['combined.period_start', 'combined.region_id', 'combined.fuel_type']) }} as generation_key,
     dim_date.date_key,
     dim_region.region_key,
     dim_fuel.fuel_key,
-    combined.period_from,
-    combined.period_to,
+    combined.period_start,
+    combined.period_end,
     combined.period_date,
     combined.region_id,
     combined.fuel_type,
-    combined.fuel_percentage
+    combined.fuel_perc
 from combined
 left join {{ ref('dim_date') }} dim_date
     on combined.period_date = dim_date.full_date

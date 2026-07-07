@@ -15,10 +15,10 @@ daily_fuel as (
         -- A true daily percentage would require weighting by total generation volume (GW),
         -- which is not available from the Carbon Intensity API.
         -- This approximation treats all half-hourly periods as equal regardless of demand.
-        avg(fuel_percentage)                    as avg_percentage,
-        percentile_cont(0.5) within group (order by fuel_percentage)    as median_percentage,
-        min(fuel_percentage)                    as min_percentage,
-        max(fuel_percentage)                    as max_percentage,
+        avg(fuel_perc)                    as avg_perc,
+        percentile_cont(0.5) within group (order by fuel_perc)    as median_perc,
+        min(fuel_perc)                    as min_perc,
+        max(fuel_perc)                    as max_perc,
         count(*)                                as periods_count
     from half_hourly
     group by period_date, region_id, fuel_type, date_key, region_key, fuel_key

@@ -1,27 +1,27 @@
 with half_hourly as (
     select * from {{ ref('fct_half_hourly_intensity') }}
-    where actual_intensity is not null
+    where intensity_actual is not null
 ),
 
 with_error as (
     select
         date_key,
         region_key,
-        period_from,
-        period_to,
+        period_start,
+        period_end,
         period_date,
         region_id,
-        forecast_intensity,
-        actual_intensity,
+        intensity_forecast,
+        intensity_actual,
         intensity_index,
-        actual_intensity - forecast_intensity                           as absolute_error,
+        intensity_actual - intensity_forecast                           as absolute_error,
         round(
-            abs(actual_intensity - forecast_intensity)::numeric
-            / nullif(actual_intensity, 0) * 100, 2
+            abs(intensity_actual - intensity_forecast)::numeric
+            / nullif(intensity_actual, 0) * 100, 2
         )                                                               as pct_error,
         case
-            when abs(actual_intensity - forecast_intensity) <= 10 then 'accurate'
-            when abs(actual_intensity - forecast_intensity) <= 30 then 'close'
+            when abs(intensity_actual - intensity_forecast) <= 10 then 'accurate'
+            when abs(intensity_actual - intensity_forecast) <= 30 then 'close'
             else 'off'
         end                                                             as accuracy_band
     from half_hourly

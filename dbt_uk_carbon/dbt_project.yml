@@ -1,3 +1,24 @@
+# """
+# Pipeline Step: dbt  (stg → core → marts) 
+# Postgres table as raw data source, dbt models as transformation, Postgres table as marts data sink
+
+# Ref: Overall data flow
+
+#                      UK Carbon Intensity API
+#                             |
+#                      Ingestion (Python + requests)
+#                             |
+#                      Validation (Pydantic)
+#                             |
+#                      Staging (JSON → Parquet)
+#                       /                    \
+#         Postgres raw load            S3 raw  (s3_loader)
+#               |                              |
+#     dbt  (stg → core → marts)        Glue PySpark jobs
+#               |                              |
+#       Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
+
+# """
 
 # Name your project! Project names should contain only lowercase characters
 # and underscores. A good package name should reflect your organization's

@@ -47,7 +47,7 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns:
-              - period_from
+              - period_start
               - region_id
     columns:
       - name: intensity_key
@@ -68,7 +68,7 @@ models:
               arguments:
                 to: ref('dim_region')
                 field: region_key
-      - name: period_from
+      - name: period_start
         data_tests:
           - not_null
       - name: region_id
@@ -81,7 +81,7 @@ models:
       - dbt_utils.unique_combination_of_columns:
           arguments:
             combination_of_columns:
-              - period_from
+              - period_start
               - region_id
               - fuel_type
     columns:
@@ -110,7 +110,7 @@ models:
               arguments:
                 to: ref('dim_fuel')
                 field: fuel_key
-      - name: period_from
+      - name: period_start
         data_tests:
           - not_null
       - name: fuel_type

@@ -15,7 +15,7 @@ sources:
             data_tests:
               - not_null
 
-      - name: raw_generation
+      - name: raw_national_generation_mix
         description: "Half-hourly national generation mix by fuel type"
         columns:
           - name: from_date
@@ -28,7 +28,7 @@ sources:
             data_tests:
               - not_null
 
-      - name: raw_regional
+      - name: raw_regional_intensity_generation_mix
         description: "Half-hourly regional intensity and generation mix"
         columns:
           - name: from_date

@@ -3,7 +3,7 @@ with regions as (
         region_id,
         dno_region,
         region_shortname
-    from {{ ref('stg_regional') }}
+    from {{ ref('stg_regional_intensity_generation_mix') }}
 
     union all
 
