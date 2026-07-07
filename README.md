@@ -12,8 +12,7 @@ The data covers two dimensions of the UK grid: carbon intensity (forecast vs. ac
 
 ## Architecture
 
-Two transformation paths share the same validated staging layer. Orchestration is split
-by target: **Apache Airflow** drives the local Postgres/dbt path; **GitHub Actions** drives
+Two transformation paths share the same validated staging layer. **Apache Airflow** is used for local postgres/dbt path orchestration.
 the cloud S3/Glue path.
 
 ```
@@ -32,9 +31,7 @@ the cloud S3/Glue path.
       Postgres marts                 S3 curated  →  (Iceberg → Athena · planned)
 
   ──────────────────────────────────────────────────────────────────────────
-  Orchestration:
-    local path  →  Apache Airflow   (ingest_and_load DAG  ▸  transform DAG)
-    cloud path  →  GitHub Actions   (s3_loader  ▸  Glue PySpark jobs)
+  Orchestration: Apache Airflow   (ingest_and_load DAG  ▸  transform DAG)
 ```
 
 ## Two implementations, verified equivalent
@@ -141,10 +138,14 @@ uv sync
 cp .env.example .env
 docker compose up postgres -d
 
-# Run the pipeline for a date range
+# Run the full pipeline for a date range: ingest → validate → stage → load,
+# then `dbt build` (models + tests). Use --skip-transform to stop before dbt.
 uv run python run_pipeline.py --from-date 2024-01-01 --to-date 2024-01-07
+```
 
-# Run dbt (models + tests)
+To re-run only the dbt transformations, without re-ingesting data:
+
+```bash
 cd dbt_uk_carbon
 uv run dbt build --profiles-dir .
 ```

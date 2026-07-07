@@ -1,6 +1,7 @@
 """
 Pipeline Entry Point
-Pydantic models for validating UK Carbon Intensity API responses. In pipeline, store the sanitized data in validated/ for downstream processing.
+Run the full local pipeline for a date range: ingest → validate → stage → load into
+Postgres, then `dbt build`. Individual steps can be skipped via --skip-* flags.
 
 Ref: Overall data flow
 
@@ -106,11 +107,10 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    """Parse CLI arguments and execute the pipeline."""
+if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
-        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
     args = build_parser().parse_args()
     run_pipeline(
@@ -120,7 +120,3 @@ def main() -> None:
         skip_load=args.skip_load,
         skip_transform=args.skip_transform,
     )
-
-
-if __name__ == "__main__":
-    main()
