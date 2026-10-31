@@ -210,8 +210,8 @@ __marimo__/
 # Notebook
 notebook/
 
-# Data
-data/
+# Data at top level
+/data/
 
 # Codex
 .codex
