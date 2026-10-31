@@ -12,10 +12,11 @@ Data zones (each step reads the previous zone and writes the next):
 - staging/: parquet, ready for Postgres load / S3 upload
 """
 
+import os
 from pathlib import Path
 
 # --- Data zones ---
-DATA_DIR = Path("./data")
+DATA_DIR = Path(os.environ.get("CARBON_DATA_DIR", "./data"))
 RAW_DIR = DATA_DIR / "raw"
 VALIDATED_DIR = DATA_DIR / "validated"
 STAGING_DIR = DATA_DIR / "staging"
