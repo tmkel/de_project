@@ -30,3 +30,12 @@ spark = [
 
 [tool.ruff]
 indent-width = 4
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["transforms"]
+
+[tool.pytest.ini_options]
+pythonpath = ["aws_cloud/glue"]
