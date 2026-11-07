@@ -25,9 +25,7 @@ class TestRunPipeline:
     def test_skip_ingest_reuses_existing_raw_files(
         self, mock_ingest, mock_validate, mock_stage, mock_load
     ):
-        run_pipeline(
-            "2022-01-01", "2022-01-01", skip_ingest=True, skip_transform=True
-        )
+        run_pipeline("2022-01-01", "2022-01-01", skip_ingest=True, skip_transform=True)
 
         mock_ingest.assert_not_called()
         mock_validate.assert_called_once_with("2022-01-01", "2022-01-01")

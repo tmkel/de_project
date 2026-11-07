@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.bash import BashOperator
-
 from carbon_datasets import RAW_CARBON_LOADED
 
 default_args = {
@@ -26,7 +25,6 @@ with DAG(
     catchup=False,
     tags=["carbon", "dbt", "transform"],
 ) as dag:
-
     dbt_build = BashOperator(
         task_id="dbt_build",
         bash_command="cd /opt/airflow/uk_carbon && dbt build",

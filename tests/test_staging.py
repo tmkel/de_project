@@ -6,7 +6,6 @@ import pandas as pd
 from src import config
 from src.staging import staging
 
-
 SAMPLE_NATIONAL_INTENSITY = [
     {
         "from": "2022-01-01T00:00Z",
@@ -98,9 +97,7 @@ class TestStageNationalIntensity:
 
         staging.stage_national_intensity("2022-01-01")
 
-        assert not config.staging_path(
-            config.NATIONAL_INTENSITY, "2022-01-01"
-        ).exists()
+        assert not config.staging_path(config.NATIONAL_INTENSITY, "2022-01-01").exists()
 
 
 class TestStageGeneration:

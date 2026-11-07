@@ -45,7 +45,9 @@ def stage_national_intensity(date: str) -> None:
         return None
 
     data_df = pd.json_normalize(data_list)
-    data_df.to_parquet(config.staging_path(config.NATIONAL_INTENSITY, date), index=False)
+    data_df.to_parquet(
+        config.staging_path(config.NATIONAL_INTENSITY, date), index=False
+    )
     return None
 
 
@@ -59,12 +61,16 @@ def stage_national_generation_mix(date: str) -> None:
     data_df = pd.json_normalize(
         data_list, record_path=["generationmix"], meta=["from", "to"]
     )
-    data_df.to_parquet(config.staging_path(config.NATIONAL_GENERATION_MIX, date), index=False)
+    data_df.to_parquet(
+        config.staging_path(config.NATIONAL_GENERATION_MIX, date), index=False
+    )
     return None
 
 
 def stage_regional_intensity_generation_mix(date: str) -> None:
-    data_list = load_json(config.validated_path(config.REGIONAL_INTENSITY_GENERATION_MIX, date))
+    data_list = load_json(
+        config.validated_path(config.REGIONAL_INTENSITY_GENERATION_MIX, date)
+    )
 
     if not data_list:
         logger.warning("No regional intensity data for %s, skipping", date)
@@ -87,7 +93,9 @@ def stage_regional_intensity_generation_mix(date: str) -> None:
                 }
                 rows.append(row)
     data_df = pd.DataFrame(rows)
-    data_df.to_parquet(config.staging_path(config.REGIONAL_INTENSITY_GENERATION_MIX, date), index=False)
+    data_df.to_parquet(
+        config.staging_path(config.REGIONAL_INTENSITY_GENERATION_MIX, date), index=False
+    )
     return None
 
 
@@ -107,8 +115,14 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    parser = argparse.ArgumentParser(description="Stage validated UK Carbon Intensity datasets to parquet for a date range.")
-    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
-    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser = argparse.ArgumentParser(
+        description="Stage validated UK Carbon Intensity datasets to parquet for a date range."
+    )
+    parser.add_argument(
+        "--from-date", required=True, help="Start date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--to-date", required=True, help="End date in YYYY-MM-DD format."
+    )
     args = parser.parse_args()
     main(from_date=args.from_date, to_date=args.to_date)

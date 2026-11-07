@@ -17,7 +17,6 @@ from src.validation.validate import (
     validate_regional_intensity_generation_mix_response,
 )
 
-
 VALID_INTENSITY_RECORD = {
     "from": "2022-01-01T00:00Z",
     "to": "2022-01-01T00:30Z",
@@ -105,7 +104,12 @@ class TestIntensityRecord:
         extra_in_intensity = {
             "from": "2022-01-01T00:00Z",
             "to": "2022-01-01T00:30Z",
-            "intensity": {"forecast": 195, "actual": 193, "index": "moderate", "new": 9},
+            "intensity": {
+                "forecast": 195,
+                "actual": 193,
+                "index": "moderate",
+                "new": 9,
+            },
         }
 
         rec = IntensityRecord.model_validate(extra_at_record)
@@ -165,7 +169,9 @@ class TestValidationHelpers:
     def test_validate_intensity_mixed_data(self):
         bad_record = {"from": "2022-01-01T00:00Z", "to": "2022-01-01T00:30Z"}
 
-        results = validate_national_intensity_response([VALID_INTENSITY_RECORD, bad_record])
+        results = validate_national_intensity_response(
+            [VALID_INTENSITY_RECORD, bad_record]
+        )
 
         assert len(results) == 1
 
@@ -194,7 +200,9 @@ class TestValidationHelpers:
         assert len(results) == 1
 
     def test_validate_regional_good_data(self):
-        results = validate_regional_intensity_generation_mix_response([VALID_REGIONAL_RECORD])
+        results = validate_regional_intensity_generation_mix_response(
+            [VALID_REGIONAL_RECORD]
+        )
 
         assert len(results) == 1
         assert results[0].regions[0].regionid == 1
@@ -227,13 +235,20 @@ class TestValidateDate:
         # Raw zone is left untouched.
         assert json.loads(raw_file.read_text()) == raw_records
 
-    def test_flags_new_upstream_field_but_keeps_record(self, tmp_path, monkeypatch, caplog):
+    def test_flags_new_upstream_field_but_keeps_record(
+        self, tmp_path, monkeypatch, caplog
+    ):
         monkeypatch.chdir(tmp_path)
         raw_records = [
             {
                 "from": "2022-01-01T00:00Z",
                 "to": "2022-01-01T00:30Z",
-                "intensity": {"forecast": 195, "actual": 193, "index": "moderate", "confidence": 9},
+                "intensity": {
+                    "forecast": 195,
+                    "actual": 193,
+                    "index": "moderate",
+                    "confidence": 9,
+                },
             }
         ]
         raw_file = config.raw_path(config.NATIONAL_INTENSITY, "2022-01-01")

@@ -143,14 +143,18 @@ def validate_national_generation_mix_response(data: list) -> list[GenerationMixR
     return valid
 
 
-def validate_regional_intensity_generation_mix_response(data: list) -> list[RegionalIntensityRecord]:
+def validate_regional_intensity_generation_mix_response(
+    data: list,
+) -> list[RegionalIntensityRecord]:
     """Validate a list of regional intensity records."""
     valid = []
     for i, record in enumerate(data):
         try:
             valid.append(RegionalIntensityRecord.model_validate(record))
         except Exception as e:
-            logger.warning("Skipping Regional Intensity and Generation Mix record %d: %s", i, e)
+            logger.warning(
+                "Skipping Regional Intensity and Generation Mix record %d: %s", i, e
+            )
     return valid
 
 
@@ -195,7 +199,9 @@ def validate_date(date: str) -> None:
     for dataset_name, validator in DATASET_VALIDATORS.items():
         raw_file = config.raw_path(dataset_name, date)
         if not raw_file.exists():
-            logger.warning("No raw %s data for %s, skipping validation", dataset_name, date)
+            logger.warning(
+                "No raw %s data for %s, skipping validation", dataset_name, date
+            )
             continue
 
         with raw_file.open("r") as file_handle:
@@ -203,8 +209,7 @@ def validate_date(date: str) -> None:
 
         validated_records = validator(raw_records)
         sanitized_records = [
-            record.model_dump(by_alias=True)
-            for record in validated_records
+            record.model_dump(by_alias=True) for record in validated_records
         ]
 
         validated_file = config.validated_path(dataset_name, date)
@@ -262,7 +267,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Validate raw UK Carbon Intensity datasets for a date range."
     )
-    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
-    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser.add_argument(
+        "--from-date", required=True, help="Start date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--to-date", required=True, help="End date in YYYY-MM-DD format."
+    )
     args = parser.parse_args()
     main(from_date=args.from_date, to_date=args.to_date)

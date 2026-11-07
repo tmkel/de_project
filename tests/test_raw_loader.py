@@ -4,7 +4,6 @@ import pandas as pd
 
 from src.storage import psql_loader
 
-
 NATIONAL_INTENSITY_ROWS = pd.DataFrame(
     [
         {
@@ -65,12 +64,16 @@ class TestStagedFileExists:
         (staging_dir / "2022-01-01.parquet").write_bytes(b"")
         monkeypatch.chdir(tmp_path)
 
-        assert psql_loader.staged_file_exists("national_intensity", "2022-01-01") is True
+        assert (
+            psql_loader.staged_file_exists("national_intensity", "2022-01-01") is True
+        )
 
     def test_returns_false_when_parquet_missing(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
 
-        assert psql_loader.staged_file_exists("national_intensity", "2022-01-01") is False
+        assert (
+            psql_loader.staged_file_exists("national_intensity", "2022-01-01") is False
+        )
 
 
 class TestLoadRawNationalIntensity:

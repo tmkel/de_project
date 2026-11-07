@@ -22,11 +22,11 @@ Ref: Overall data flow
       Postgres marts                 S3 curated  ->  (Iceberg -> Athena - planned)
 """
 
-
 import sys
+
+from awsglue.context import GlueContext
 from awsglue.utils import getResolvedOptions
 from pyspark.context import SparkContext
-from awsglue.context import GlueContext
 from pyspark.sql import functions as F
 from pyspark.sql.window import Window
 
@@ -44,9 +44,11 @@ out_path = f"s3://{bucket}/curated/mart_daily_intensity/"
 # the API timestamp string is e.g. "2025-01-01T00:00Z"
 TS_FORMAT = "yyyy-MM-dd'T'HH:mm'Z'"
 
+
 def make_key(*cols):
     """Readable composite key for a row's grain."""
     return F.concat_ws("|", *[F.col(c).cast("string") for c in cols])
+
 
 # ---------------------------------------------------------------------------
 # stg_national_intensity side of fct_half_hourly_intensity
@@ -84,8 +86,7 @@ national = (
 regional_df = spark.read.parquet(regional_path)
 
 regional_cleaned = (
-    regional_df
-    .withColumnRenamed("from", "period_from")
+    regional_df.withColumnRenamed("from", "period_from")
     .withColumnRenamed("to", "period_to")
     .withColumnRenamed("regionid", "region_id")
     .withColumnRenamed("intensity.forecast", "forecast_intensity")
@@ -95,11 +96,12 @@ regional_cleaned = (
     .withColumn("fuel_type", F.lower(F.trim(F.col("fuel"))))
 )
 
-dedup_window = Window.partitionBy("period_from", "region_id").orderBy(F.asc("fuel_type"))
+dedup_window = Window.partitionBy("period_from", "region_id").orderBy(
+    F.asc("fuel_type")
+)
 
 regional = (
-    regional_cleaned
-    .withColumn("_rn", F.row_number().over(dedup_window))
+    regional_cleaned.withColumn("_rn", F.row_number().over(dedup_window))
     .filter(F.col("_rn") == 1)
     .select(
         "period_date",
@@ -122,13 +124,11 @@ combined = (
 )
 
 
-
 # ---------------------------------------------------------------------------
 # daily aggregation (mart_daily_intensity)
 # ---------------------------------------------------------------------------
 daily = (
-    combined
-    .groupBy("period_date", "region_id", "date_key", "region_key")
+    combined.groupBy("period_date", "region_id", "date_key", "region_key")
     .agg(
         F.count("*").alias("periods_count"),
         F.avg("forecast_intensity").alias("avg_forecast_intensity"),
@@ -158,9 +158,6 @@ daily = daily.select(
     "actual_completeness_pct",
 ).orderBy("period_date", "region_id")
 
-(daily.write
-      .mode("overwrite")
-      .partitionBy("period_date")
-      .parquet(out_path))
+(daily.write.mode("overwrite").partitionBy("period_date").parquet(out_path))
 
 print(f"wrote {daily.count()} rows to {out_path}")

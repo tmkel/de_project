@@ -87,8 +87,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run the data pipeline from ingestion through loading."
     )
-    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
-    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser.add_argument(
+        "--from-date", required=True, help="Start date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--to-date", required=True, help="End date in YYYY-MM-DD format."
+    )
     parser.add_argument(
         "--skip-ingest",
         action="store_true",

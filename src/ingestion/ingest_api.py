@@ -152,8 +152,14 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
-    parser = argparse.ArgumentParser(description="Fetch UK Carbon Intensity datasets for a date range.")
-    parser.add_argument("--from-date", required=True, help="Start date in YYYY-MM-DD format.")
-    parser.add_argument("--to-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser = argparse.ArgumentParser(
+        description="Fetch UK Carbon Intensity datasets for a date range."
+    )
+    parser.add_argument(
+        "--from-date", required=True, help="Start date in YYYY-MM-DD format."
+    )
+    parser.add_argument(
+        "--to-date", required=True, help="End date in YYYY-MM-DD format."
+    )
     args = parser.parse_args()
     main(from_date=args.from_date, to_date=args.to_date)

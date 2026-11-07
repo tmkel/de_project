@@ -87,7 +87,9 @@ class TestGetters:
         assert result[0]["intensity"]["forecast"] == 74
 
     @patch("src.ingestion.ingest_api._fetch_data")
-    def test_get_national_generation_mix_uses_next_day_endpoint_and_filters(self, mock_fetch):
+    def test_get_national_generation_mix_uses_next_day_endpoint_and_filters(
+        self, mock_fetch
+    ):
         mock_fetch.return_value = [
             {"from": "2022-01-01T00:00Z", "generationmix": [{"fuel": "wind"}]},
             {"from": "2022-01-01T23:30Z", "generationmix": [{"fuel": "gas"}]},
@@ -170,16 +172,16 @@ class TestSaveDailyDatasets:
         ingest_api.save_daily_datasets("2022-01-01", {})
 
         for dataset in config.DATASETS:
-            assert json.loads(
-                config.raw_path(dataset, "2022-01-01").read_text()
-            ) == []
+            assert json.loads(config.raw_path(dataset, "2022-01-01").read_text()) == []
 
 
 class TestMain:
     @patch("src.ingestion.ingest_api.time.sleep")
     @patch("src.ingestion.ingest_api.save_daily_datasets")
     @patch("src.ingestion.ingest_api.fetch_daily_datasets")
-    def test_main_fetches_and_saves_each_day(self, mock_fetch_daily, mock_save, mock_sleep):
+    def test_main_fetches_and_saves_each_day(
+        self, mock_fetch_daily, mock_save, mock_sleep
+    ):
         mock_fetch_daily.side_effect = [
             {config.NATIONAL_INTENSITY: [1]},
             {config.NATIONAL_INTENSITY: [4]},

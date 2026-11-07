@@ -5,13 +5,12 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+from carbon_datasets import RAW_CARBON_LOADED
 
 from src.ingestion import ingest_api
 from src.staging import staging
 from src.storage import psql_loader
 from src.validation import validate
-
-from carbon_datasets import RAW_CARBON_LOADED
 
 logger = logging.getLogger(__name__)
 
