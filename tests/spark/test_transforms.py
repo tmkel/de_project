@@ -355,6 +355,11 @@ def test_mart_daily_intensity_aggregates_per_day_and_region(spark):
     assert rows[1]["avg_intensity_actual"] is None
     assert rows[1]["intensity_actual_completeness_pct"] == 0.0
 
+    # date_key / region_key are group-by columns, so they pass straight through
+    assert rows[0]["date_key"] == "dk-2026-01-01"
+    assert rows[0]["region_key"] == "rk-0"
+    assert rows[1]["region_key"] == "rk-1"
+
     # period_date is a Postgres date here (not dim_date's timestamp),
     # so the key has no 00:00:00
     assert rows[0]["daily_intensity_key"] == _md5("2026-01-01-0")

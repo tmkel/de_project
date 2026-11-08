@@ -2,6 +2,8 @@ from pyspark.sql import functions as F
 
 from .common import dbt_key
 
+PERIODS_PER_DAY = 48  # half-hour settlement periods
+
 
 def build_mart_daily_intensity(fct_half_hourly_intensity_df):
     """Build mart_daily_intensity from fct_half_hourly_intensity."""
@@ -13,7 +15,7 @@ def build_mart_daily_intensity(fct_half_hourly_intensity_df):
         F.avg("intensity_actual").alias("avg_intensity_actual"),
         F.min("intensity_actual").alias("min_intensity_actual"),
         F.max("intensity_actual").alias("max_intensity_actual"),
-        F.round(F.count("intensity_actual") / 48 * 100, 1).alias(
+        F.round(F.count("intensity_actual") / PERIODS_PER_DAY * 100, 1).alias(
             "intensity_actual_completeness_pct"
         ),
     )
