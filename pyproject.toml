@@ -39,3 +39,5 @@ known-first-party = ["transforms"]
 
 [tool.pytest.ini_options]
 pythonpath = ["aws_cloud/glue"]
+addopts = "-m 'not explore'"
+markers = ["explore: manual exploration helpers, not run by default"]
