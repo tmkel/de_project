@@ -167,7 +167,9 @@ def test_dbt_key_date_and_int_match_postgres_text_cast(spark):
     df = df.select(
         F.to_date(F.col("from"), TS_FORMAT).alias("period_date"), "region_id"
     )
-    key = df.select(dbt_key("period_date", "region_id").alias("key")).first()["key"]
+    key = df.select(dbt_key("period_date", "region_id").alias("key")).collect()[0][
+        "key"
+    ]
     assert key == _md5("2026-01-01-1")
 
 
