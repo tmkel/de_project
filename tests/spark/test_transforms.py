@@ -11,6 +11,7 @@ from transforms.common import (
     stg_national_intensity,
     stg_regional_intensity_generation_mix,
 )
+from transforms.core import build_fct_half_hourly_intensity
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "data" / "staging"
 
@@ -186,4 +187,114 @@ def test_dbt_key_replaces_nulls_with_dbt_sentinel(spark):
             _md5("_dbt_utils_surrogate_key_null_-1"),
             _md5("1-_dbt_utils_surrogate_key_null_"),
         ]
+    )
+
+
+REGIONAL_RAW_COLUMNS = [
+    "from",
+    "to",
+    "regionid",
+    "dnoregion",
+    "shortname",
+    "intensity.forecast",
+    "intensity.index",
+    "fuel",
+    "perc",
+]
+
+
+def _stg_inputs(spark):
+    national_raw = spark.createDataFrame(
+        [("2026-01-01T00:00Z", "2026-01-01T00:30Z", 105, 98, "low")],
+        ["from", "to", "intensity.forecast", "intensity.actual", "intensity.index"],
+    )
+    regional_raw = spark.createDataFrame(
+        [
+            # region 1 has two fuel rows for the same period; forecasts differ on
+            # purpose so we can see which one survives the dedup
+            ("2026-01-01T00:00Z", "2026-01-01T00:30Z", 1, "SSE", "North Scotland", 50, "low", "wind", 80.0),
+            ("2026-01-01T00:00Z", "2026-01-01T00:30Z", 1, "SSE", "North Scotland", 40, "low", "biomass", 20.0),
+            ("2026-01-01T00:00Z", "2026-01-01T00:30Z", 2, "SPD", "South Scotland", 60, "low", "gas", 100.0),
+        ],
+        REGIONAL_RAW_COLUMNS,
+    )  # fmt: skip
+    return (
+        stg_national_intensity(national_raw),
+        stg_regional_intensity_generation_mix(regional_raw),
+    )
+
+
+def test_fct_half_hourly_intensity_unions_national_and_dedups_regional(spark):
+    out = build_fct_half_hourly_intensity(*_stg_inputs(spark))
+    rows = {r["region_id"]: r for r in out.collect()}
+
+    assert out.columns == [
+        "intensity_key",
+        "date_key",
+        "region_key",
+        "period_start",
+        "period_end",
+        "period_date",
+        "region_id",
+        "intensity_forecast",
+        "intensity_actual",
+        "intensity_index",
+    ]
+    # one row per (period_start, region_id): national as region 0 + 2 regions
+    assert out.count() == 3
+    assert sorted(rows) == [0, 1, 2]
+
+    # national keeps its actual; regional has no actual
+    assert rows[0]["intensity_forecast"] == 105
+    assert rows[0]["intensity_actual"] == 98
+    assert rows[1]["intensity_actual"] is None
+
+    # dbt: distinct on (period_start, region_id) ... order by fuel_type
+    # -> 'biomass' sorts before 'wind', so its forecast wins
+    assert rows[1]["intensity_forecast"] == 40
+
+    # type check on period_date
+    assert dict(out.dtypes)["period_date"] == "date"
+
+
+def test_fct_half_hourly_intensity_keys_match_dbt(spark):
+    out = build_fct_half_hourly_intensity(*_stg_inputs(spark))
+    rows = {r["region_id"]: r for r in out.collect()}
+
+    # generate_surrogate_key(['combined.period_start', 'combined.region_id'])
+    assert rows[1]["intensity_key"] == _md5("2026-01-01 00:00:00-1")
+    assert rows[0]["intensity_key"] == _md5("2026-01-01 00:00:00-0")
+
+    # dim_date.date_key hashes date_day, which date_spine builds as
+    # date + interval -> a Postgres timestamp, so it is md5('2026-01-01 00:00:00')
+    # real value from dim_date in Postgres (checked 2026-11-07)
+    assert rows[1]["date_key"] == "37c1bcdcf2b3dde7f748430b95fc4166"
+
+    # dim_region.region_key: generate_surrogate_key(['region_id'])
+    assert rows[1]["region_key"] == _md5("1")
+    assert rows[0]["region_key"] == _md5("0")
+
+
+def test_fct_half_hourly_intensity_on_fixture_has_912_rows(spark):
+    national = stg_national_intensity(
+        spark.read.parquet(str(FIXTURES / "national_intensity" / "2026-01-01.parquet"))
+    )
+    regional = stg_regional_intensity_generation_mix(
+        spark.read.parquet(
+            str(FIXTURES / "regional_intensity_generation_mix" / "2026-01-01.parquet")
+        )
+    )
+
+    out = build_fct_half_hourly_intensity(national, regional)
+
+    # 48 half-hour periods x (1 national + 18 regions)
+    assert out.count() == 912
+    assert out.select("intensity_key").distinct().count() == 912
+    assert (
+        out.filter(
+            F.col("intensity_key").isNull()
+            | F.col("date_key").isNull()
+            | F.col("region_key").isNull()
+        ).count()
+        == 0
     )

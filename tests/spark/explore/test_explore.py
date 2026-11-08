@@ -1,6 +1,6 @@
-import pytest
-
 from pathlib import Path
+
+import pytest
 
 from transforms.common import (
     stg_national_intensity,
@@ -9,6 +9,7 @@ from transforms.common import (
 from transforms.core import build_fct_half_hourly_intensity
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "data" / "staging"
+
 
 @pytest.mark.explore
 def test_explore_fct(spark):

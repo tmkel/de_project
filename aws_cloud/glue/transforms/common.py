@@ -41,13 +41,16 @@ def stg_regional_intensity_generation_mix(df):
 
 def dbt_key(*cols):
     """Byte-for-byte replica of dbt_utils.generate_surrogate_key:
-    md5 of the null-safe string casts, joined with '-'."""
+    md5 of the null-safe string casts, joined with '-'.
+
+    Each col may be a column name or a Column expression."""
     return F.md5(
         F.concat_ws(
             "-",
             *[
                 F.coalesce(
-                    F.col(c).cast("string"), F.lit("_dbt_utils_surrogate_key_null_")
+                    (F.col(c) if isinstance(c, str) else c).cast("string"),
+                    F.lit("_dbt_utils_surrogate_key_null_"),
                 )
                 for c in cols
             ],
