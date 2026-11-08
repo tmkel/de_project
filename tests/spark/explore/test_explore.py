@@ -1,3 +1,5 @@
+import pytest
+
 from pathlib import Path
 
 from transforms.common import (
@@ -8,7 +10,7 @@ from transforms.core import build_fct_half_hourly_intensity
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "data" / "staging"
 
-
+@pytest.mark.explore
 def test_explore_fct(spark):
     national = stg_national_intensity(
         spark.read.parquet(str(FIXTURES / "national_intensity" / "2026-01-01.parquet"))
