@@ -7,6 +7,7 @@ from transforms.common import (
     stg_regional_intensity_generation_mix,
 )
 from transforms.core import build_fct_half_hourly_intensity
+from transforms.marts import build_mart_daily_intensity
 
 FIXTURES = Path(__file__).parents[2] / "fixtures" / "data" / "staging"
 
@@ -21,4 +22,5 @@ def test_explore_fct(spark):
             str(FIXTURES / "regional_intensity_generation_mix" / "2026-01-01.parquet")
         )
     )
-    build_fct_half_hourly_intensity(national, regional)
+    fct_half_hourly_intensity_df = build_fct_half_hourly_intensity(national, regional)
+    build_mart_daily_intensity(fct_half_hourly_intensity_df).show(10, False)

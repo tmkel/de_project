@@ -2,6 +2,7 @@ import datetime
 import hashlib
 from pathlib import Path
 
+import pytest
 from pyspark.sql import functions as F
 
 from transforms.common import (
@@ -12,6 +13,7 @@ from transforms.common import (
     stg_regional_intensity_generation_mix,
 )
 from transforms.core import build_fct_half_hourly_intensity
+from transforms.marts import build_mart_daily_intensity
 
 FIXTURES = Path(__file__).parents[1] / "fixtures" / "data" / "staging"
 
@@ -298,3 +300,84 @@ def test_fct_half_hourly_intensity_on_fixture_has_912_rows(spark):
         ).count()
         == 0
     )
+
+
+FCT_INTENSITY_SCHEMA = (
+    "period_date date, region_id int, date_key string, region_key string, "
+    "intensity_forecast int, intensity_actual int, intensity_index string"
+)
+
+
+def test_mart_daily_intensity_aggregates_per_day_and_region(spark):
+    day = datetime.date(2026, 1, 1)
+    fct = spark.createDataFrame(
+        [
+            # region 0: two half-hours with actuals
+            (day, 0, "dk-2026-01-01", "rk-0", 110, 100, "low"),
+            (day, 0, "dk-2026-01-01", "rk-0", 190, 200, "moderate"),
+            # region 1: two half-hours, regional has no actuals
+            (day, 1, "dk-2026-01-01", "rk-1", 50, None, "low"),
+            (day, 1, "dk-2026-01-01", "rk-1", 70, None, "low"),
+        ],
+        FCT_INTENSITY_SCHEMA,
+    )
+
+    out = build_mart_daily_intensity(fct)
+    rows = {r["region_id"]: r for r in out.collect()}
+
+    # dbt column order, minus dominant_index
+    assert out.columns == [
+        "daily_intensity_key",
+        "date_key",
+        "region_key",
+        "period_date",
+        "region_id",
+        "periods_count",
+        "avg_intensity_forecast",
+        "avg_intensity_actual",
+        "min_intensity_actual",
+        "max_intensity_actual",
+        "intensity_actual_completeness_pct",
+    ]
+    assert out.count() == 2
+
+    assert rows[0]["periods_count"] == 2
+    assert rows[0]["avg_intensity_forecast"] == pytest.approx(150)
+    assert rows[0]["avg_intensity_actual"] == pytest.approx(150)
+    assert rows[0]["min_intensity_actual"] == 100
+    assert rows[0]["max_intensity_actual"] == 200
+    # round(2 / 48 * 100, 1)
+    assert rows[0]["intensity_actual_completeness_pct"] == 4.2
+
+    # rows still count even when every actual is null
+    assert rows[1]["periods_count"] == 2
+    assert rows[1]["avg_intensity_forecast"] == pytest.approx(60)
+    assert rows[1]["avg_intensity_actual"] is None
+    assert rows[1]["intensity_actual_completeness_pct"] == 0.0
+
+    # period_date is a Postgres date here (not dim_date's timestamp),
+    # so the key has no 00:00:00
+    assert rows[0]["daily_intensity_key"] == _md5("2026-01-01-0")
+    assert rows[1]["daily_intensity_key"] == _md5("2026-01-01-1")
+
+
+def test_mart_daily_intensity_on_fixture_has_38_rows(spark):
+    # reading the folder picks up both days (2026-01-01 and 2026-01-02)
+    national = stg_national_intensity(
+        spark.read.parquet(str(FIXTURES / "national_intensity"))
+    )
+    regional = stg_regional_intensity_generation_mix(
+        spark.read.parquet(str(FIXTURES / "regional_intensity_generation_mix"))
+    )
+
+    out = build_mart_daily_intensity(
+        build_fct_half_hourly_intensity(national, regional)
+    )
+
+    # 2 days x (1 national + 18 regions)
+    assert out.count() == 38
+    assert out.filter(F.col("periods_count") != 48).count() == 0
+
+    national_days = out.filter(F.col("region_id") == 0).collect()
+    assert len(national_days) == 2
+    assert all(r["intensity_actual_completeness_pct"] == 100.0 for r in national_days)
